@@ -1,0 +1,249 @@
+:root {
+  color-scheme: dark;
+  --bg: #111720;
+  --panel: #1b2430;
+  --panel-soft: #253244;
+  --ink: #edf2f8;
+  --muted: #a1afc1;
+  --line: #39495e;
+  --accent: #78b7ff;
+  --accent-dark: #102033;
+  --warm: #ff9b91;
+}
+
+body {
+  background: radial-gradient(ellipse at 20% 0%, #202c3d 0, #111720 58%);
+}
+
+body.light {
+  color-scheme: light;
+  --bg: #f2f5f8;
+  --panel: #ffffff;
+  --panel-soft: #e5edf5;
+  --ink: #1b2735;
+  --muted: #607286;
+  --line: #c7d3df;
+  --accent: #3479b8;
+  --accent-dark: #e5f0fa;
+  --warm: #a74037;
+  background: radial-gradient(ellipse at 20% 0%, #e6edf5 0, #f2f5f8 58%);
+}
+
+.sidebar { background: #141c27; border-color: var(--line); }
+.brand { gap:8px; letter-spacing:0; }
+.sidebar .brand { font-size:18px; }
+.brand-mark { width:36px; height:36px; border-radius:10px; font:600 11px/1 var(--mono); letter-spacing:0; }
+.account-gate-top .brand { font-size:18px; }
+.account-gate-top .brand-mark { width:33px; height:33px; font-size:10px; }
+.topbar,.page-footer,.record-feature,.session-card { border-color: var(--line); }
+.nav-item:hover,.nav-item.active { background: var(--panel-soft); }
+.streak-card,.metric-grid,.metric-cell,.workout-controls,.workout-exercise,.history-stats,
+.quick-start,.exercise-detail-panel,.top-set-editor,.custom-exercise-panel,.exercise-summary-row,
+.set-note-dialog,.exercise-group-dialog,.number-pad-dialog,.account-panel {
+  border-color: var(--line);
+  background-color: var(--panel);
+}
+.streak-card,.metric-grid,.quick-start,.workout-controls,.workout-exercise,.history-stats,
+.exercise-detail-panel,.top-set-editor,.custom-exercise-panel,.exercise-summary-row,
+.session-card,.set-note-dialog,.exercise-group-dialog,.number-pad-dialog,.account-panel {
+  border-radius: 14px;
+}
+.metric-cell { background: transparent; }
+.quick-start { color: var(--ink); }
+.quick-start-number,.quick-start > .eyebrow { color: var(--muted); }
+.quick-start > p,.quick-start-foot { color: var(--muted); }
+.quick-start h3 { color: var(--ink); }
+.quick-start-foot .live-dot { background: var(--accent); }
+.muscle-grid { overflow: hidden; border: 1px solid var(--line); border-radius: 14px; background: var(--panel); }
+.muscle-cell { background: transparent; border-color: var(--line); }
+.record-feature { border-color: var(--line); }
+.session-card { border-radius: 10px; }
+.session-date,.history-day,.record-mark,.exercise-initial,.community-avatar {
+  border-color: var(--line);
+  background: var(--panel-soft);
+}
+.library-exercise { border-color: var(--line); border-radius: 9px; }
+.exercise-summary-row { background: var(--panel); }
+.exercise-back-button { border-color: #46566d; border-radius: 10px; background: var(--panel); }
+.split-switcher { border-color: var(--line); border-radius: 10px; background: var(--panel); }
+.detail-set-row.is-selected { border-color: #566779; border-radius: 8px; background: #304158; }
+.detail-set-complete span { border-color: #64768a; border-radius: 5px; }
+.grouping-section-label.completed-label { color: var(--accent); }
+.grouping-exercise-row { border-radius: 10px; background: var(--panel); }
+.grouping-exercise-row.completed { border-color: var(--line); border-left-color: var(--superset-color, var(--accent)); background: var(--panel-soft); }
+.grouping-complete-check input:checked + span { border-color: var(--accent); background: var(--accent); color: #102033; }
+
+.field-label input,.field-label select,.exercise-toolbar input,.exercise-toolbar select,
+.period-select,.set-input,.detail-number-input,.number-pad-display,.set-note-form textarea,
+.auth-form .field-label input,.auth-form .field-label select {
+  border-color: #46566d;
+  border-radius: 10px;
+  background: #111720;
+  color: var(--ink);
+}
+.field-label input:focus,.field-label select:focus,.exercise-toolbar input:focus,
+.exercise-toolbar select:focus,.set-input:focus,.auth-form .field-label input:focus,
+.auth-form .field-label select:focus { border-color: var(--accent); }
+input::placeholder,textarea::placeholder { color: #a1afc1; opacity: 1; }
+
+.primary-button,.outline-button,.icon-button,.step-button,.number-pad button,
+.auth-mode-switch button,.activity-like,.activity-like-count {
+  border-color: #46566d;
+  border-radius: 10px;
+}
+.primary-button,.outline-button,.icon-button,.step-button,.number-pad button {
+  background: var(--panel-soft);
+  color: var(--ink);
+}
+.primary-button:hover,.outline-button:hover,.icon-button:hover,.step-button:hover,
+.number-pad button:hover { border-color: var(--accent); background: #304158; color: var(--ink); }
+.quick-start .primary-button { border-color: #46566d; background: var(--panel-soft); color: var(--ink); }
+.quick-start .primary-button:hover { border-color: var(--accent); background: #304158; }
+.save-detail-set { border-color: var(--accent); background: var(--accent); color: #102033; }
+.save-detail-set:hover { border-color: #a0d0ff; background: #a0d0ff; color: #102033; }
+.split-option[aria-checked="true"],.auth-mode-switch button[aria-selected="true"] {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: #102033;
+}
+.activity-like,.activity-like-count { border-color: #46566d; background: var(--panel); }
+button.activity-like:hover,button.activity-like[aria-pressed="true"] {
+  border-color: var(--accent);
+  background: #253b52;
+  color: var(--accent);
+}
+.set-note-dialog,.exercise-group-dialog,.number-pad-dialog { background: var(--panel); color: var(--ink); }
+.set-note-dialog::backdrop,.exercise-group-dialog::backdrop,.number-pad-dialog::backdrop {
+  background: #080b10bb;
+  backdrop-filter: blur(3px);
+}
+button { transition: transform .16s ease, box-shadow .16s ease, background-color .16s ease, border-color .16s ease; }
+button:enabled:hover { transform: translateY(-1px); box-shadow: 0 7px 16px rgb(0 0 0 / 24%); }
+
+body.light .sidebar { background: #f5f8fb; }
+body.light .streak-card,body.light .metric-grid,body.light .metric-cell,body.light .workout-controls,
+body.light .workout-exercise,body.light .history-stats,body.light .quick-start,
+body.light .exercise-detail-panel,body.light .top-set-editor,body.light .custom-exercise-panel,
+body.light .exercise-summary-row,body.light .account-panel { background: var(--panel); }
+body.light .field-label input,body.light .field-label select,body.light .exercise-toolbar input,
+body.light .exercise-toolbar select,body.light .period-select,body.light .set-input,
+body.light .detail-number-input,body.light .number-pad-display,body.light .set-note-form textarea,
+body.light .auth-form .field-label input,body.light .auth-form .field-label select {
+  border-color: var(--line);
+  background: #ffffff;
+  color: var(--ink);
+}
+body.light .primary-button,body.light .outline-button,body.light .icon-button,
+body.light .step-button,body.light .number-pad button,body.light .activity-like,
+body.light .activity-like-count { border-color: var(--line); background: var(--panel-soft); color: var(--ink); }
+body.light .quick-start .primary-button { background: var(--panel-soft); }
+body.light .activity-like[aria-pressed="true"] { border-color: var(--accent); color: #245d91; }
+body.light .grouping-exercise-row.completed { border-color: var(--line); background: var(--panel-soft); }
+
+.avatar-image { display:block; width:100%; height:100%; border-radius:inherit; object-fit:cover; }
+.community-avatar.has-photo { overflow:hidden; padding:0; background:var(--panel); }
+.profile-photo-dialog,.admin-avatar-dialog { width:min(520px,calc(100vw - 28px)); max-width:none; max-height:min(84dvh,760px); padding:0; overflow:hidden; border:1px solid var(--line); border-radius:16px; background:var(--panel); color:var(--ink); box-shadow:0 24px 80px #0009; }
+.profile-photo-dialog::backdrop,.admin-avatar-dialog::backdrop { background:#080b10bb; backdrop-filter:blur(3px); }
+.profile-photo-applet,.admin-avatar-applet { padding:22px; }
+.profile-photo-current { display:flex; align-items:center; gap:14px; margin:18px 0; }
+.profile-photo-current>.avatar { display:grid; width:68px; height:68px; flex:0 0 68px; place-items:center; overflow:hidden; border:1px solid var(--line); border-radius:50%; background:var(--panel-soft); color:var(--accent); font:600 22px var(--display); }
+.profile-photo-current>div { display:grid; gap:5px; }
+.profile-photo-current strong { font:600 16px var(--display); }
+.profile-photo-current>div>span,.admin-avatar-note { color:var(--muted); font-size:11px; }
+.profile-photo-actions { display:flex; flex-wrap:wrap; gap:9px; }
+.profile-photo-upload,.admin-avatar-upload { position:relative; display:inline-flex; align-items:center; justify-content:center; min-height:40px; padding:0 12px; overflow:hidden; cursor:pointer; }
+.profile-photo-upload input,.admin-avatar-upload input { position:absolute; inset:0; width:100%; height:100%; opacity:0; cursor:pointer; }
+.admin-photo-manager-open { width:100%; margin-top:12px; }
+.profile-photo-status { min-height:18px; margin:12px 0 0; color:var(--muted); font-size:11px; }
+.admin-avatar-note { margin:-7px 0 16px; }
+.admin-avatar-list { display:grid; max-height:55dvh; gap:8px; overflow:auto; }
+.admin-avatar-row { display:flex; align-items:center; justify-content:space-between; gap:12px; min-width:0; padding:9px; border:1px solid var(--line); border-radius:10px; background:var(--panel-soft); }
+.admin-avatar-member { display:flex; min-width:0; align-items:center; gap:9px; }
+.admin-avatar-member>.avatar { display:grid; width:36px; height:36px; flex:0 0 36px; place-items:center; overflow:hidden; border:1px solid var(--line); border-radius:50%; background:var(--panel); color:var(--accent); font:600 12px var(--display); }
+.admin-avatar-member>strong { display:grid; gap:2px; overflow-wrap:anywhere; font:600 12px var(--display); }
+.admin-avatar-member small { color:var(--accent); font:8px var(--mono); }
+.admin-avatar-actions { display:flex; flex:0 0 auto; gap:6px; }
+.admin-avatar-actions .outline-button { min-height:34px; padding:0 9px; font-size:10px; }
+.admin-avatar-actions button:disabled { opacity:.45; cursor:not-allowed; }
+body.light .admin-avatar-row { background:var(--panel-soft); }
+body.light .admin-avatar-member>.avatar { background:var(--panel); }
+
+.quick-start-actions { display:flex; width:100%; align-items:stretch; gap:8px; margin-top:auto; }
+.quick-start-actions .primary-button { flex:1; min-width:0; }
+.workout-calendar-button { flex:0 0 44px; width:44px; min-height:44px; font-size:18px; }
+.quick-start-reuse { display:grid; width:100%; gap:6px; margin:12px 0 10px; color:var(--muted); font:9px var(--mono); }
+.quick-start-reuse .eyebrow { color:var(--muted); font-size:8px; }
+.quick-start-reuse select { width:100%; min-width:0; min-height:40px; border:1px solid #46566d; border-radius:10px; padding:0 10px; background:#111720; color:var(--ink); font:11px var(--body); }
+.quick-start-reuse select:focus { border-color:var(--accent); outline:1px solid var(--accent); }
+.session-title-line,.history-session-title { display:flex; min-width:0; align-items:center; gap:8px; }
+.session-title-line strong,.history-session-title strong { min-width:0; overflow-wrap:anywhere; }
+.session-title-line .workout-split-marker,.history-session-title .workout-split-marker { flex:0 0 11px; width:11px; height:11px; }
+.community-workout-title { display:flex; min-width:0; align-items:center; gap:7px; }
+.community-workout-title strong { min-width:0; overflow-wrap:anywhere; }
+.community-workout-title .workout-split-marker { width:10px; height:10px; flex-basis:10px; }
+.workout-split-marker { display:inline-block; width:12px; height:12px; flex:0 0 12px; background:var(--marker-color,#a1afc1); }
+.workout-split-marker.shape-circle { border-radius:50%; }
+.workout-split-marker.shape-square { border-radius:2px; }
+.workout-split-marker.shape-triangle { clip-path:polygon(50% 0,0 100%,100% 100%); }
+.workout-split-marker.shape-outline-circle { border:2px solid var(--marker-color,#a1afc1); border-radius:50%; background:transparent; }
+.workout-calendar-dialog { width:min(940px,calc(100vw - 24px)); max-width:none; max-height:min(90dvh,900px); padding:0; overflow:hidden; border:1px solid var(--line); border-radius:16px; background:var(--panel); color:var(--ink); box-shadow:0 24px 80px #0009; }
+.workout-calendar-dialog::backdrop { background:#080b10bb; backdrop-filter:blur(3px); }
+.workout-calendar-shell { display:grid; max-height:min(90dvh,900px); grid-template-rows:auto auto minmax(0,1fr); gap:16px; padding:22px; }
+.workout-calendar-header,.calendar-results-heading { display:flex; align-items:center; justify-content:space-between; gap:14px; }
+.workout-calendar-header h2 { margin:5px 0 0; font:600 23px var(--display); }
+.workout-calendar-toolbar { display:grid; grid-template-columns:minmax(0,1fr) minmax(180px,.45fr); gap:12px; }
+.workout-calendar-toolbar .field-label { display:grid; gap:6px; color:var(--muted); font:9px var(--mono); }
+.workout-calendar-toolbar input { width:100%; min-height:40px; border:1px solid #46566d; border-radius:10px; padding:0 10px; background:#111720; color:var(--ink); font:12px var(--body); }
+.workout-calendar-toolbar input:focus { border-color:var(--accent); outline:1px solid var(--accent); }
+.workout-calendar-layout { display:grid; min-height:0; grid-template-columns:minmax(300px,.85fr) minmax(0,1.15fr); gap:20px; }
+.calendar-pane,.calendar-results-pane { min-width:0; min-height:0; }
+.calendar-pane { display:flex; flex-direction:column; gap:8px; }
+.calendar-weekdays,.workout-calendar-grid { display:grid; grid-template-columns:repeat(7,minmax(0,1fr)); gap:4px; }
+.calendar-weekdays span { padding:5px 0; color:var(--muted); text-align:center; font:8px var(--mono); }
+.calendar-day { display:grid; min-width:0; min-height:46px; grid-template-rows:auto 1fr; align-content:start; justify-items:center; gap:3px; padding:5px 2px; border:1px solid var(--line); border-radius:8px; background:var(--panel-soft); color:var(--ink); cursor:pointer; }
+.calendar-day.is-outside-month { opacity:.28; }
+.calendar-day.is-today { border-color:var(--accent); }
+.calendar-day.is-selected { background:#304158; box-shadow:inset 0 0 0 1px var(--accent); }
+.calendar-day:disabled { cursor:default; }
+.calendar-day-number { font:10px var(--mono); }
+.calendar-day-markers { display:flex; min-height:10px; align-items:center; justify-content:center; gap:2px; }
+.calendar-day-markers .workout-split-marker { width:8px; height:8px; flex-basis:8px; }
+.calendar-marker-more { color:var(--muted); font:7px var(--mono); }
+.calendar-shape-legend { display:flex; max-height:92px; flex-wrap:wrap; gap:6px 10px; overflow:auto; padding:9px 2px 0; border-top:1px solid var(--line); }
+.calendar-legend-item { display:inline-flex; align-items:center; gap:5px; color:var(--muted); font:8px var(--mono); }
+.calendar-legend-item .workout-split-marker { width:10px; height:10px; flex-basis:10px; }
+.calendar-results-pane { display:flex; flex-direction:column; overflow:hidden; border-top:1px solid var(--line); }
+.calendar-results-heading { min-height:38px; color:var(--muted); }
+.calendar-results-heading h3 { margin:0; color:var(--ink); font:600 13px var(--display); }
+.calendar-results-heading>span { font:9px var(--mono); }
+.calendar-results { display:grid; align-content:start; gap:8px; overflow:auto; padding:4px 3px 3px 0; }
+.calendar-session-result { display:grid; gap:8px; padding:10px; border:1px solid var(--line); border-radius:10px; background:var(--panel-soft); }
+.calendar-result-heading { display:flex; align-items:center; gap:9px; min-width:0; }
+.calendar-result-heading>div { display:grid; min-width:0; gap:3px; }
+.calendar-result-heading .eyebrow { color:var(--muted); font:8px var(--mono); }
+.calendar-result-heading strong { overflow-wrap:anywhere; font:600 12px var(--display); }
+.calendar-result-exercises { display:flex; flex-wrap:wrap; gap:5px; }
+.calendar-result-exercises span { padding:4px 6px; border-radius:5px; background:var(--panel); color:var(--muted); font-size:9px; }
+.calendar-result-footer { display:flex; align-items:center; justify-content:space-between; gap:10px; color:var(--muted); font:9px var(--mono); }
+.calendar-result-footer .outline-button { min-height:32px; padding:0 10px; font-size:10px; }
+body.light .quick-start-reuse select,body.light .workout-calendar-toolbar input { border-color:var(--line); background:var(--panel); color:var(--ink); }
+body.light .calendar-day { border-color:var(--line); background:var(--panel-soft); color:var(--ink); }
+body.light .calendar-session-result { border-color:var(--line); background:var(--panel-soft); }
+body.light .calendar-result-exercises span { background:var(--panel); }
+@media(max-width:760px) {
+  .workout-calendar-dialog { width:calc(100vw - 16px); max-height:92dvh; }
+  .workout-calendar-shell { max-height:92dvh; gap:12px; padding:14px; }
+  .workout-calendar-layout { grid-template-columns:1fr; overflow:auto; }
+  .workout-calendar-toolbar { grid-template-columns:1fr; gap:8px; }
+  .calendar-day { min-height:40px; }
+  .calendar-results-pane { overflow:visible; }
+  .admin-avatar-row { align-items:flex-start; }
+}
+@media(max-width:390px) {
+  .calendar-day { min-height:36px; padding:4px 1px; }
+  .calendar-weekdays,.workout-calendar-grid { gap:2px; }
+  .calendar-day-markers .workout-split-marker { width:7px; height:7px; flex-basis:7px; }
+  .admin-avatar-row { flex-direction:column; }
+  .admin-avatar-actions { width:100%; }
+  .admin-avatar-actions>* { flex:1; }
+}
