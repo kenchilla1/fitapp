@@ -860,6 +860,7 @@ function renderNavigation(view) {
 }
 
 function openMobileMenu() {
+  if (document.body.classList.contains("mobile-menu-open")) return;
   document.body.classList.add("mobile-menu-open");
   document.getElementById("mobile-menu-open").setAttribute("aria-expanded", "true");
   document.getElementById("sidebar-close").focus();
@@ -1368,6 +1369,9 @@ document.addEventListener("visibilitychange", () => {
 document.querySelectorAll("[data-view]").forEach((button) => button.addEventListener("click", () => renderNavigation(button.dataset.view)));
 document.querySelectorAll("[data-open-view]").forEach((button) => button.addEventListener("click", () => renderNavigation(button.dataset.openView)));
 document.getElementById("mobile-menu-open").addEventListener("click", openMobileMenu);
+document.getElementById("mobile-menu-open").addEventListener("pointerup", (event) => {
+  if (event.pointerType === "touch") openMobileMenu();
+});
 document.getElementById("sidebar-close").addEventListener("click", () => {
   closeMobileMenu();
   document.getElementById("mobile-menu-open").focus();

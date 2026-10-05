@@ -107,6 +107,10 @@ const staticFiles = new Map([
   ["/split-theme.css", ["split-theme.css", "text/css; charset=utf-8"]],
   ["/account.css", ["account.css", "text/css; charset=utf-8"]],
   ["/origin-theme.css", ["origin-theme.css", "text/css; charset=utf-8"]],
+  ["/icon.jpg", ["icon.jpg", "image/jpeg"]],
+  ["/lift-with-kenny-192.png", ["lift-with-kenny-192.png", "image/png"]],
+  ["/lift-with-kenny-512.png", ["lift-with-kenny-512.png", "image/png"]],
+  ["/manifest.webmanifest", ["manifest.webmanifest", "application/manifest+json; charset=utf-8"]],
 ]);
 
 function hashToken(token) {

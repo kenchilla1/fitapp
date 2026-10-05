@@ -1,0 +1,14 @@
+{
+  "name": "Lift with Kenny",
+  "short_name": "Lift with Kenny",
+  "description": "A personal workout log and training community.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#111720",
+  "theme_color": "#111720",
+  "icons": [
+    { "src": "/lift-with-kenny-192.png?v=skull-20261005", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/lift-with-kenny-512.png?v=skull-20261005", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ]
+}
