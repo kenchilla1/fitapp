@@ -25,7 +25,7 @@
           <form class="auth-form" id="login-form" autocomplete="on"><label class="field-label" for="login-username">USERNAME<input id="login-username" name="username" autocomplete="username" minlength="3" maxlength="24" required /></label><label class="field-label" for="login-password">PASSWORD<input id="login-password" name="password" type="password" autocomplete="current-password" required /></label><button class="primary-button" type="submit">Sign in <span>→</span></button><button class="auth-text-button" id="open-recovery" type="button">Forgot your password?</button></form>
           <form class="auth-form" id="register-form" hidden autocomplete="on">
             <label class="field-label" for="register-username">USERNAME<input id="register-username" name="username" autocomplete="username" minlength="3" maxlength="24" pattern="[A-Za-z0-9._\-]{3,24}" required /><small>3–24 letters, numbers, dots, underscores, or hyphens.</small></label>
-            <label class="field-label" for="register-password">PASSWORD<input id="register-password" name="password" type="password" autocomplete="new-password" minlength="10" maxlength="256" required /><small>At least 10 characters.</small></label>
+            <label class="field-label" for="register-password">PASSWORD<input id="register-password" name="password" type="password" autocomplete="new-password" minlength="4" maxlength="256" pattern="[A-Za-z0-9]{4,256}" required /><small>At least 4 letters or numbers. Longer passwords are safer.</small></label>
             <div class="recovery-fields"><div class="recovery-fields-heading"><span class="eyebrow">ACCOUNT RECOVERY</span><span>Choose three different questions.</span></div>
               <div class="recovery-pair"><label class="field-label" for="recovery-question-1">QUESTION 1<select id="recovery-question-1" required><option value="">Choose a question…</option><option value="first-school">What was the name of your first school?</option><option value="childhood-friend">What was the first name of a childhood friend?</option><option value="favorite-teacher">What was the last name of a favorite teacher?</option><option value="first-concert">What was the first concert you attended?</option><option value="childhood-book">What was a favorite book from childhood?</option><option value="first-pet">What was the name of your first pet?</option></select></label><label class="field-label" for="recovery-answer-1">ANSWER<input id="recovery-answer-1" autocomplete="off" minlength="2" maxlength="120" required /></label></div>
               <div class="recovery-pair"><label class="field-label" for="recovery-question-2">QUESTION 2<select id="recovery-question-2" required><option value="">Choose a question…</option><option value="first-school">What was the name of your first school?</option><option value="childhood-friend">What was the first name of a childhood friend?</option><option value="favorite-teacher">What was the last name of a favorite teacher?</option><option value="first-concert">What was the first concert you attended?</option><option value="childhood-book">What was a favorite book from childhood?</option><option value="first-pet">What was the name of your first pet?</option></select></label><label class="field-label" for="recovery-answer-2">ANSWER<input id="recovery-answer-2" autocomplete="off" minlength="2" maxlength="120" required /></label></div>
@@ -34,18 +34,16 @@
             </div>
             <button class="primary-button" type="submit">Create account <span>→</span></button>
           </form>
-          <form class="auth-form" id="recovery-form" hidden><label class="field-label" for="recovery-username">USERNAME<input id="recovery-username" autocomplete="username" minlength="3" maxlength="24" required /></label><button class="outline-button recovery-load-button" id="load-recovery-questions" type="button">Load recovery questions</button><div id="recovery-question-fields" class="recovery-question-fields" hidden></div><div class="recovery-reset-fields" id="recovery-reset-fields" hidden><label class="field-label" for="new-password">NEW PASSWORD<input id="new-password" type="password" autocomplete="new-password" minlength="10" maxlength="256" required /></label><button class="primary-button" type="submit">Reset password <span>→</span></button></div><button class="auth-text-button" type="button" data-auth-mode="login">Back to sign in</button></form>
+          <form class="auth-form" id="recovery-form" hidden><label class="field-label" for="recovery-username">USERNAME<input id="recovery-username" autocomplete="username" minlength="3" maxlength="24" required /></label><button class="outline-button recovery-load-button" id="load-recovery-questions" type="button">Load recovery questions</button><div id="recovery-question-fields" class="recovery-question-fields" hidden></div><div class="recovery-reset-fields" id="recovery-reset-fields" hidden><label class="field-label" for="new-password">NEW PASSWORD<input id="new-password" type="password" autocomplete="new-password" minlength="4" maxlength="256" pattern="[A-Za-z0-9]{4,256}" required /><small>At least 4 letters or numbers. Longer passwords are safer.</small></label><button class="primary-button" type="submit">Reset password <span>→</span></button></div><button class="auth-text-button" type="button" data-auth-mode="login">Back to sign in</button></form>
           <p class="auth-message" id="auth-message" role="status" aria-live="polite"></p>
         </section>
       </div>
       <footer class="account-gate-footer"><span>LIFT WITH KENNY / TRAINING LOG</span><span>Passwords and recovery answers are never stored as readable text.</span></footer>
     </section>
     <div class="app-shell" id="app-shell" hidden>
-      <aside class="sidebar" aria-label="Main navigation">
-        <a class="brand" href="#dashboard" aria-label="Lift with Kenny home">
-          <span class="brand-mark">KG</span>
-          <span>Lift with Kenny</span>
-        </a>
+      <button class="sidebar-backdrop" id="sidebar-backdrop" type="button" aria-label="Close navigation menu" tabindex="-1"></button>
+      <aside class="sidebar" id="main-sidebar" aria-label="Main navigation">
+        <div class="sidebar-heading"><a class="brand" href="#dashboard" aria-label="Lift with Kenny home"><span class="brand-mark">KG</span><span>Lift with Kenny</span></a><button class="sidebar-close-button" id="sidebar-close" type="button" aria-label="Close menu">‹</button></div>
 
         <div class="nav-caption">WORKSPACE</div>
         <nav class="primary-nav">
@@ -53,6 +51,7 @@
           <button class="nav-item" data-view="workout" type="button"><span class="nav-icon">02</span>Log workout</button>
           <button class="nav-item" data-view="history" type="button"><span class="nav-icon">03</span>Training history</button>
           <button class="nav-item" data-view="exercises" type="button"><span class="nav-icon">04</span>Exercises</button>
+          <button class="nav-item" data-view="feedback" type="button"><span class="nav-icon">05</span>Feedback</button>
         </nav>
 
         <div class="sidebar-bottom">
@@ -68,6 +67,7 @@
 
       <main class="main-area">
         <header class="topbar">
+          <button class="mobile-menu-button" id="mobile-menu-open" type="button" aria-label="Open navigation menu" aria-controls="main-sidebar" aria-expanded="false"><span aria-hidden="true">→</span></button>
           <div class="breadcrumb"><span>MY TRAINING</span><span class="breadcrumb-slash">/</span><span id="breadcrumb-current">OVERVIEW</span></div>
           <div class="split-switcher" role="radiogroup" aria-label="Training split">
             <button class="split-option" type="button" role="radio" aria-checked="false" data-split="ppl">Push / Pull / Legs</button>
@@ -121,6 +121,18 @@
         <section class="view" id="history-view" aria-labelledby="history-title"><div class="page-heading"><div><div class="eyebrow">EVERY REP, REMEMBERED</div><h1 id="history-title">Training history<span class="title-period">.</span></h1><p class="intro-copy">Your work speaks for itself.</p></div><select class="period-select" id="history-filter" aria-label="Filter training history"><option value="all">All time</option><option value="month">This month</option><option value="week">This week</option></select></div><div class="history-stats" id="history-stats"></div><div class="history-content" id="history-list"></div></section>
 
         <section class="view" id="exercises-view" aria-labelledby="exercises-title"><div class="page-heading"><div><div class="eyebrow">YOUR EXERCISE LIBRARY</div><h1 id="exercises-title">Exercises<span class="title-period">.</span></h1><p class="intro-copy">The movements that make up your training.</p></div><span class="exercise-count" id="exercise-count"></span></div><div class="exercise-toolbar"><input type="search" id="exercise-search" placeholder="Find an exercise…" aria-label="Search exercises" /><select id="muscle-filter" aria-label="Filter by muscle group"><option value="all">All muscle groups</option></select></div><div class="library-grid" id="exercise-library"></div></section>
+
+        <section class="view" id="feedback-view" aria-labelledby="feedback-title">
+          <div class="page-heading"><div><div class="eyebrow">HELP SHAPE THE APP</div><h1 id="feedback-title">Feedback<span class="title-period">.</span></h1><p class="intro-copy">Tell us what you like, what you don’t, or what you’d like to see next.</p></div></div>
+          <form class="feedback-form" id="feedback-form">
+            <fieldset class="feedback-category"><legend>WHAT WOULD YOU LIKE TO SHARE?</legend><label><input type="radio" name="feedback-category" value="like" checked /><span>Like</span></label><label><input type="radio" name="feedback-category" value="dislike" /><span>Dislike</span></label><label><input type="radio" name="feedback-category" value="suggestion" /><span>Suggestion</span></label></fieldset>
+            <label class="field-label" for="feedback-message">YOUR FEEDBACK<textarea id="feedback-message" name="message" rows="6" minlength="10" maxlength="2000" placeholder="What would you like us to know?" required></textarea></label>
+            <div class="feedback-submit-row"><span class="feedback-privacy">Visible to you, Kenny, and admins.</span><button class="primary-button" type="submit">Send feedback <span>→</span></button></div>
+            <p class="feedback-status" id="feedback-status" role="status" aria-live="polite"></p>
+          </form>
+          <section class="feedback-history" aria-labelledby="feedback-history-title"><div class="section-heading"><div><span class="eyebrow">YOUR NOTES</span><h2 id="feedback-history-title">Previous feedback</h2></div></div><div id="my-feedback-list" class="feedback-list"></div></section>
+          <section class="admin-feedback-section" id="admin-feedback-section" hidden aria-labelledby="admin-feedback-title"><div class="section-heading"><div><span class="eyebrow">ADMINISTRATION</span><h2 id="admin-feedback-title">Member feedback</h2></div></div><div id="admin-feedback-list" class="feedback-list"></div></section>
+        </section>
       </main>
     </div>
     <nav class="mobile-nav" aria-label="Mobile navigation" hidden><button class="mobile-nav-item active" data-view="dashboard" type="button"><span>01</span>Overview</button><button class="mobile-nav-item" data-view="workout" type="button"><span>02</span>Log</button><button class="mobile-nav-item" data-view="history" type="button"><span>03</span>History</button><button class="mobile-nav-item" data-view="exercises" type="button"><span>04</span>Exercises</button></nav>
@@ -150,7 +162,7 @@
       <div class="profile-photo-applet"><div class="applet-heading"><div><span class="eyebrow">LIFT WITH KENNY ACCOUNT</span><h2 id="profile-photo-title">Profile photo</h2></div><button class="applet-close" id="close-profile-photo" type="button" aria-label="Close profile settings">×</button></div><div class="profile-photo-current"><span class="avatar" id="profile-photo-preview">KG</span><div><strong id="profile-photo-username">Member</strong><span>Shown beside your name.</span></div></div><div class="profile-photo-actions"><label class="outline-button profile-photo-upload" for="profile-photo-input">Upload or replace<input id="profile-photo-input" type="file" accept="image/jpeg,image/png,image/webp" /></label><button class="outline-button" id="remove-profile-photo" type="button" hidden>Remove photo</button></div><button class="outline-button admin-photo-manager-open" id="open-admin-photo-manager" type="button" hidden>Manage member photos</button><p class="profile-photo-status" id="profile-photo-status" role="status" aria-live="polite"></p></div>
     </dialog>
     <dialog class="admin-avatar-dialog" id="admin-avatar-dialog" aria-labelledby="admin-avatar-title">
-      <div class="admin-avatar-applet"><div class="applet-heading"><div><span class="eyebrow">ADMINISTRATION</span><h2 id="admin-avatar-title">Member photos</h2></div><button class="applet-close" id="close-admin-avatar-dialog" type="button" aria-label="Close member photo manager">×</button></div><p class="admin-avatar-note">Upload or remove the photo shown beside each member’s name.</p><div class="admin-avatar-list" id="admin-avatar-list"></div><p class="profile-photo-status" id="admin-avatar-status" role="status" aria-live="polite"></p></div>
+      <div class="admin-avatar-applet"><div class="applet-heading"><div><span class="eyebrow">ADMINISTRATION</span><h2 id="admin-avatar-title">Member accounts</h2></div><button class="applet-close" id="close-admin-avatar-dialog" type="button" aria-label="Close member account manager">×</button></div><p class="admin-avatar-note">Deactivate to block sign-in while preserving workouts; reactivate any time. Deleting a PIN signs the member out. Passwords are never shown.</p><div class="admin-avatar-list" id="admin-avatar-list"></div><p class="profile-photo-status" id="admin-avatar-status" role="status" aria-live="polite"></p></div>
     </dialog>
     <div class="toast" id="toast" role="status" aria-live="polite"></div>
   </body>

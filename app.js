@@ -210,7 +210,36 @@ let exerciseHoldTriggered = false;
 let currentUser = null;
 let accountSaveQueue = Promise.resolve();
 let communityRefreshTimer = null;
+let feedbackAlertTimer = null;
+let feedbackAlertCursor = 0;
 let selectedCalendarDate = null;
+const IDLE_LOGOUT_MS = 60 * 60 * 1000;
+let idleLogoutTimer = null;
+let lastUserActivityAt = 0;
+
+function scheduleIdleLogout() {
+  if (!currentUser) return;
+  window.clearTimeout(idleLogoutTimer);
+  const remaining = IDLE_LOGOUT_MS - (Date.now() - lastUserActivityAt);
+  if (remaining <= 0) {
+    signOut("You were signed out after 60 minutes of inactivity.");
+    return;
+  }
+  idleLogoutTimer = window.setTimeout(() => scheduleIdleLogout(), remaining);
+}
+
+function recordUserActivity() {
+  if (!currentUser) return;
+  const now = Date.now();
+  if (now - lastUserActivityAt < 5000) return;
+  lastUserActivityAt = now;
+  scheduleIdleLogout();
+}
+
+function startIdleLogoutTimer() {
+  lastUserActivityAt = Date.now();
+  scheduleIdleLogout();
+}
 
 function serializeAccountData() {
   return {
@@ -298,10 +327,46 @@ async function renderAdminAvatarUsers() {
       const picture = user.hasAvatar
         ? `<img class="avatar-image" src="/api/users/${user.id}/avatar?v=${user.avatarVersion}" alt="" loading="lazy" />`
         : escapeHtml(initial);
-      return `<article class="admin-avatar-row"><div class="admin-avatar-member"><span class="avatar">${picture}</span><strong>${escapeHtml(user.username)}${user.isAdmin ? '<small>ADMIN</small>' : ""}</strong></div><div class="admin-avatar-actions"><label class="outline-button admin-avatar-upload" for="admin-avatar-file-${user.id}">Upload<input id="admin-avatar-file-${user.id}" data-admin-avatar-upload="${user.id}" type="file" accept="image/jpeg,image/png,image/webp" /></label><button class="outline-button" data-admin-avatar-remove="${user.id}" type="button" ${user.hasAvatar ? "" : "disabled"}>Remove</button></div></article>`;
+      const passwordLabel = user.hasPassword ? "PIN SET" : "RECOVERY RESET REQUIRED";
+      const isOwnAccount = user.id === currentUser.id;
+      const accountAction = user.isActive ? "deactivate" : "reactivate";
+      const accountStatus = user.isActive ? "ACTIVE" : "DEACTIVATED";
+      return `<article class="admin-avatar-row${user.isActive ? "" : " is-deactivated"}"><div class="admin-avatar-member"><span class="avatar">${picture}</span><strong>${escapeHtml(user.username)}${user.isAdmin ? '<small>ADMIN</small>' : ""}<small class="admin-account-state">${accountStatus}</small><small>${passwordLabel}</small></strong></div><div class="admin-avatar-actions"><label class="outline-button admin-avatar-upload" for="admin-avatar-file-${user.id}">Upload<input id="admin-avatar-file-${user.id}" data-admin-avatar-upload="${user.id}" type="file" accept="image/jpeg,image/png,image/webp" /></label><button class="outline-button" data-admin-avatar-remove="${user.id}" type="button" ${user.hasAvatar ? "" : "disabled"}>Remove photo</button><button class="outline-button admin-password-delete" data-admin-password-delete="${user.id}" type="button" ${user.hasPassword && !isOwnAccount ? "" : "disabled"} title="${isOwnAccount ? "You cannot delete your own password" : "Invalidate this member PIN"}">Delete PIN</button></div><div class="admin-account-actions"><button class="outline-button admin-account-toggle" data-admin-account-action="${accountAction}" data-admin-account-id="${user.id}" type="button" ${isOwnAccount ? "disabled" : ""}>${user.isActive ? "Deactivate" : "Reactivate"}</button></div></article>`;
     }).join("") || '<div class="community-empty">No member accounts found.</div>';
   } catch (error) {
     container.innerHTML = `<div class="community-empty">${escapeHtml(error.message || "Could not load member accounts.")}</div>`;
+  }
+}
+
+async function deleteAdminMemberPassword(targetUserId) {
+  if (!currentUser?.isAdmin || targetUserId === currentUser.id) return;
+  const confirmed = window.confirm("Delete this member’s password? They will be signed out and must use their recovery questions to set a new PIN. The current PIN will not be shown.");
+  if (!confirmed) return;
+  const status = document.getElementById("admin-avatar-status");
+  status.textContent = "Deleting member PIN…";
+  try {
+    await accountRequest(`/api/admin/users/${targetUserId}/password`, { method: "DELETE" });
+    await renderAdminAvatarUsers();
+    status.textContent = "PIN deleted. The member must use password recovery to regain access.";
+  } catch (error) {
+    status.textContent = error.message || "Could not delete this member PIN.";
+  }
+}
+
+async function toggleAdminMemberAccount(targetUserId, action) {
+  if (!currentUser?.isAdmin || targetUserId === currentUser.id || !["deactivate", "reactivate"].includes(action)) return;
+  if (action === "deactivate" && !window.confirm("Deactivate this account? The member will be signed out and hidden from shared activity. Their workouts and account data will be preserved.")) return;
+  const status = document.getElementById("admin-avatar-status");
+  status.textContent = action === "deactivate" ? "Deactivating account…" : "Reactivating account…";
+  try {
+    await accountRequest(`/api/admin/users/${targetUserId}/${action}`, { method: "POST", body: {} });
+    await renderAdminAvatarUsers();
+    status.textContent = action === "deactivate"
+      ? "Account deactivated. Data is preserved; you can reactivate it later."
+      : "Account reactivated. The member can sign in again.";
+    await refreshCommunityActivity();
+  } catch (error) {
+    status.textContent = error.message || "Could not update this account.";
   }
 }
 
@@ -443,6 +508,7 @@ function applyAccountData(data) {
 
 async function activateAccount(user, data) {
   currentUser = user;
+  startIdleLogoutTimer();
   applyAccountData(data);
   document.getElementById("current-username").textContent = user.username;
   updateProfileAvatarUI();
@@ -452,7 +518,9 @@ async function activateAccount(user, data) {
   clearLegacyAccountData();
   setAuthMessage();
   await refreshCommunityActivity();
+  await primeFeedbackAlertCursor();
   if (!communityRefreshTimer) communityRefreshTimer = window.setInterval(refreshCommunityActivity, 45000);
+  if (!feedbackAlertTimer) feedbackAlertTimer = window.setInterval(pollFeedbackAlerts, 30000);
 }
 
 function renderActivityLike(activity) {
@@ -513,6 +581,63 @@ async function toggleActivityLike(eventId) {
     showToast(error.message || "Could not update like.");
   }
 }
+
+const feedbackCategoryNames = { like: "Like", dislike: "Dislike", suggestion: "Suggestion" };
+
+function formatFeedbackDate(timestamp) {
+  const date = new Date(Number(timestamp));
+  return Number.isNaN(date.getTime()) ? "Date unavailable" : formatDate(date, { month: "short", day: "numeric", year: "numeric" });
+}
+
+function renderFeedbackItems(container, items, includeAuthor = false) {
+  if (!items.length) {
+    container.innerHTML = '<div class="community-empty">No feedback submitted yet.</div>';
+    return;
+  }
+  container.innerHTML = items.map((item) => `<article class="feedback-entry"><div class="feedback-entry-heading"><span class="feedback-kind kind-${escapeHtml(item.category)}">${escapeHtml(feedbackCategoryNames[item.category] || "Feedback")}</span>${includeAuthor ? `<strong>${escapeHtml(item.username)}</strong>` : ""}<time>${escapeHtml(formatFeedbackDate(item.created_at))}</time></div><p>${escapeHtml(item.message)}</p></article>`).join("");
+}
+
+async function loadFeedbackView() {
+  if (!currentUser) return;
+  const ownList = document.getElementById("my-feedback-list");
+  const adminSection = document.getElementById("admin-feedback-section");
+  adminSection.hidden = !currentUser.isAdmin;
+  try {
+    const ownFeedback = await accountRequest("/api/feedback");
+    renderFeedbackItems(ownList, ownFeedback.items);
+    if (currentUser.isAdmin) {
+      const adminFeedback = await accountRequest("/api/admin/feedback");
+      renderFeedbackItems(document.getElementById("admin-feedback-list"), adminFeedback.items, true);
+    }
+  } catch (error) {
+    ownList.innerHTML = `<div class="community-empty">${escapeHtml(error.message || "Could not load feedback.")}</div>`;
+  }
+}
+
+async function primeFeedbackAlertCursor() {
+  feedbackAlertCursor = 0;
+  if (!currentUser?.isAdmin && currentUser?.username.toLocaleLowerCase("en-US") !== "kenny") return;
+  try {
+    const result = await accountRequest("/api/feedback/alerts?afterId=0");
+    feedbackAlertCursor = Number(result.latestId) || 0;
+  } catch { /* The inbox remains available if alert priming fails. */ }
+}
+
+async function pollFeedbackAlerts() {
+  if (!currentUser?.isAdmin && currentUser?.username.toLocaleLowerCase("en-US") !== "kenny") return;
+  try {
+    const result = await accountRequest(`/api/feedback/alerts?afterId=${feedbackAlertCursor}`);
+    feedbackAlertCursor = Math.max(feedbackAlertCursor, Number(result.latestId) || 0);
+    if (!result.items.length) return;
+    const latest = result.items[result.items.length - 1];
+    const category = feedbackCategoryNames[latest.category]?.toLocaleLowerCase("en-US") || "feedback";
+    showToast(result.items.length === 1
+      ? `New ${category} feedback from ${latest.username}.`
+      : `${result.items.length} new feedback posts received.`);
+    if (document.getElementById("feedback-view").classList.contains("active")) await loadFeedbackView();
+  } catch { /* Feedback remains available in its view if alerts cannot be polled. */ }
+}
+
 
 async function initializeAccountPortal() {
   setAuthMode("login");
@@ -719,17 +844,31 @@ function loadLastMatchingWorkout() {
 }
 
 function renderNavigation(view) {
+  closeMobileMenu();
   document.querySelectorAll("[data-view]").forEach((button) => {
     button.classList.toggle("active", button.dataset.view === view);
   });
   document.querySelectorAll(".view").forEach((section) => {
     section.classList.toggle("active", section.id === `${view}-view`);
   });
-  const titles = { dashboard: "OVERVIEW", workout: "LOG WORKOUT", history: "TRAINING HISTORY", exercises: "EXERCISES" };
+  const titles = { dashboard: "OVERVIEW", workout: "LOG WORKOUT", history: "TRAINING HISTORY", exercises: "EXERCISES", feedback: "FEEDBACK" };
   document.getElementById("breadcrumb-current").textContent = titles[view];
   if (view === "history") renderHistory();
   if (view === "exercises") renderLibrary();
+  if (view === "feedback") loadFeedbackView();
   window.scrollTo({ top: 0, behavior: "smooth" });
+}
+
+function openMobileMenu() {
+  document.body.classList.add("mobile-menu-open");
+  document.getElementById("mobile-menu-open").setAttribute("aria-expanded", "true");
+  document.getElementById("sidebar-close").focus();
+}
+
+function closeMobileMenu() {
+  document.body.classList.remove("mobile-menu-open");
+  const openButton = document.getElementById("mobile-menu-open");
+  if (openButton) openButton.setAttribute("aria-expanded", "false");
 }
 
 function renderSessions() {
@@ -1219,8 +1358,30 @@ function refreshDateLabels() {
 }
 
 let workoutStartedAt = Date.now();
+for (const eventName of ["pointerdown", "pointermove", "keydown", "touchstart", "wheel", "scroll"]) {
+  window.addEventListener(eventName, recordUserActivity, { passive: true });
+}
+window.addEventListener("focus", scheduleIdleLogout);
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "visible") scheduleIdleLogout();
+});
 document.querySelectorAll("[data-view]").forEach((button) => button.addEventListener("click", () => renderNavigation(button.dataset.view)));
 document.querySelectorAll("[data-open-view]").forEach((button) => button.addEventListener("click", () => renderNavigation(button.dataset.openView)));
+document.getElementById("mobile-menu-open").addEventListener("click", openMobileMenu);
+document.getElementById("sidebar-close").addEventListener("click", () => {
+  closeMobileMenu();
+  document.getElementById("mobile-menu-open").focus();
+});
+document.getElementById("sidebar-backdrop").addEventListener("click", () => {
+  closeMobileMenu();
+  document.getElementById("mobile-menu-open").focus();
+});
+document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape" && document.body.classList.contains("mobile-menu-open")) {
+    closeMobileMenu();
+    document.getElementById("mobile-menu-open").focus();
+  }
+});
 document.querySelectorAll(".split-option").forEach((button) => button.addEventListener("click", () => selectTrainingSplit(button.dataset.split)));
 document.getElementById("start-suggested-session").addEventListener("click", loadSuggestedWorkout);
 document.getElementById("load-split-suggestion").addEventListener("click", loadSuggestedWorkout);
@@ -1339,6 +1500,28 @@ document.getElementById("save-workout").addEventListener("click", finishWorkout)
 document.getElementById("history-filter").addEventListener("change", renderHistory);
 document.getElementById("exercise-search").addEventListener("input", renderLibrary);
 document.getElementById("muscle-filter").addEventListener("change", renderLibrary);
+document.getElementById("feedback-form").addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const form = event.currentTarget;
+  const values = new FormData(form);
+  const status = document.getElementById("feedback-status");
+  const submitButton = form.querySelector('[type="submit"]');
+  submitButton.disabled = true;
+  status.textContent = "Sending feedback…";
+  try {
+    await accountRequest("/api/feedback", {
+      method: "POST",
+      body: { category: values.get("feedback-category"), message: values.get("message") },
+    });
+    form.reset();
+    status.textContent = "Thanks. Kenny and the admins (The AI robots that built this shit) have been notified.";
+    await loadFeedbackView();
+  } catch (error) {
+    status.textContent = error.message || "Could not send feedback.";
+  } finally {
+    submitButton.disabled = false;
+  }
+});
 document.addEventListener("click", (event) => {
   const removeButton = event.target.closest("[data-remove-exercise]");
   if (removeButton) {
@@ -1502,16 +1685,22 @@ document.getElementById("recovery-form").addEventListener("submit", async (event
     setAuthMessage(error.message);
   }
 });
-async function signOut() {
-  try { await accountRequest("/api/logout", { method: "POST", body: {} }); } catch { /* Clear the local view even when the server is offline. */ }
+async function signOut(message = "") {
   currentUser = null;
+  window.clearTimeout(idleLogoutTimer);
+  idleLogoutTimer = null;
+  try { await accountRequest("/api/logout", { method: "POST", body: {} }); } catch { /* Clear the local view even when the server is offline. */ }
   if (communityRefreshTimer) window.clearInterval(communityRefreshTimer);
   communityRefreshTimer = null;
+  if (feedbackAlertTimer) window.clearInterval(feedbackAlertTimer);
+  feedbackAlertTimer = null;
+  feedbackAlertCursor = 0;
   draftExercises = [];
   document.getElementById("app-shell").hidden = true;
   document.querySelector(".mobile-nav").hidden = true;
   document.body.classList.remove("authenticated");
   setAuthMode("login");
+  if (message) showToast(message);
 }
 document.getElementById("logout-button").addEventListener("click", signOut);
 document.getElementById("logout-sidebar").addEventListener("click", signOut);
@@ -1542,6 +1731,10 @@ document.getElementById("admin-avatar-list").addEventListener("change", (event) 
 document.getElementById("admin-avatar-list").addEventListener("click", (event) => {
   const removeButton = event.target.closest("[data-admin-avatar-remove]");
   if (removeButton && !removeButton.disabled) removeAvatar(Number(removeButton.dataset.adminAvatarRemove));
+  const deletePasswordButton = event.target.closest("[data-admin-password-delete]");
+  if (deletePasswordButton && !deletePasswordButton.disabled) deleteAdminMemberPassword(Number(deletePasswordButton.dataset.adminPasswordDelete));
+  const accountButton = event.target.closest("[data-admin-account-action]");
+  if (accountButton && !accountButton.disabled) toggleAdminMemberAccount(Number(accountButton.dataset.adminAccountId), accountButton.dataset.adminAccountAction);
 });
 document.getElementById("workout-calendar-open").addEventListener("click", () => {
   document.getElementById("workout-calendar-search").value = "";

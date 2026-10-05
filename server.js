@@ -35,6 +35,7 @@ database.exec(`
     password_salt TEXT NOT NULL,
     password_hash TEXT NOT NULL,
     is_admin INTEGER NOT NULL DEFAULT 0,
+    is_active INTEGER NOT NULL DEFAULT 1,
     avatar_mime TEXT,
     avatar_blob BLOB,
     avatar_version INTEGER NOT NULL DEFAULT 0,
@@ -74,12 +75,25 @@ database.exec(`
     created_at INTEGER NOT NULL,
     PRIMARY KEY (event_id, user_id)
   );
+  CREATE TABLE IF NOT EXISTS app_feedback (
+    id INTEGER PRIMARY KEY,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    category TEXT NOT NULL CHECK (category IN ('like', 'dislike', 'suggestion')),
+    message TEXT NOT NULL,
+    created_at INTEGER NOT NULL
+  );
+  CREATE INDEX IF NOT EXISTS app_feedback_recent ON app_feedback(created_at DESC);
 `);
 const userColumns = new Set(database.prepare("PRAGMA table_info(users)").all().map((column) => column.name));
 if (!userColumns.has("is_admin")) database.exec("ALTER TABLE users ADD COLUMN is_admin INTEGER NOT NULL DEFAULT 0");
+if (!userColumns.has("is_active")) database.exec("ALTER TABLE users ADD COLUMN is_active INTEGER NOT NULL DEFAULT 1");
 if (!userColumns.has("avatar_mime")) database.exec("ALTER TABLE users ADD COLUMN avatar_mime TEXT");
 if (!userColumns.has("avatar_blob")) database.exec("ALTER TABLE users ADD COLUMN avatar_blob BLOB");
 if (!userColumns.has("avatar_version")) database.exec("ALTER TABLE users ADD COLUMN avatar_version INTEGER NOT NULL DEFAULT 0");
+for (const account of database.prepare("SELECT id, username FROM users").all()) {
+  const displayName = formatDisplayUsername(account.username);
+  if (displayName !== account.username) database.prepare("UPDATE users SET username = ? WHERE id = ?").run(displayName, account.id);
+}
 if (database.prepare("SELECT COUNT(*) AS count FROM users WHERE is_admin = 1").get().count === 0) {
   database.prepare("UPDATE users SET is_admin = 1 WHERE id = (SELECT MIN(id) FROM users)").run();
 }
@@ -105,6 +119,11 @@ function normalizeAnswer(answer) {
 
 function normalizeUsername(username) {
   return String(username || "").trim().normalize("NFKC");
+}
+
+function formatDisplayUsername(username) {
+  return String(username || "").toLocaleLowerCase("en-US")
+    .replace(/(^|[._-])([a-z])/g, (match, separator, letter) => `${separator}${letter.toLocaleUpperCase("en-US")}`);
 }
 
 function validUsername(username) {
@@ -182,9 +201,9 @@ function getSessionUser(request) {
   const token = getCookie(request, "repwise_session");
   if (!token) return null;
   const row = database.prepare(`
-    SELECT users.id, users.username, users.is_admin, users.avatar_mime, users.avatar_version
+    SELECT users.id, users.username, users.is_admin, users.is_active, users.avatar_mime, users.avatar_version
     FROM login_sessions JOIN users ON users.id = login_sessions.user_id
-    WHERE login_sessions.token_hash = ? AND login_sessions.expires_at > ?
+    WHERE login_sessions.token_hash = ? AND login_sessions.expires_at > ? AND users.is_active = 1
   `).get(hashToken(token), Date.now());
   return row || null;
 }
@@ -192,8 +211,9 @@ function getSessionUser(request) {
 function publicUser(user) {
   return {
     id: Number(user.id),
-    username: user.username,
+    username: formatDisplayUsername(user.username),
     isAdmin: Boolean(user.is_admin),
+    isActive: user.is_active === undefined ? true : Boolean(user.is_active),
     hasAvatar: Boolean(user.avatar_mime),
     avatarVersion: Number(user.avatar_version) || 0,
   };
@@ -235,6 +255,7 @@ function buildCommunitySynopsis() {
   const accounts = database.prepare(`
     SELECT users.username, account_data.data
     FROM users LEFT JOIN account_data ON account_data.user_id = users.id
+    WHERE users.is_active = 1
     ORDER BY users.username_key
   `).all();
   return accounts.map((account) => {
@@ -288,12 +309,13 @@ function readCommunityActivity(eventType, currentUserId) {
   const rows = database.prepare(`
     SELECT events.id, events.user_id, events.data, events.created_at, users.username,
       users.avatar_mime, users.avatar_version,
-      COUNT(likes.user_id) AS like_count,
-      COALESCE(MAX(CASE WHEN likes.user_id = ? THEN 1 ELSE 0 END), 0) AS liked
+      COUNT(CASE WHEN liking_users.id IS NOT NULL THEN likes.user_id END) AS like_count,
+      COALESCE(MAX(CASE WHEN liking_users.id = ? THEN 1 ELSE 0 END), 0) AS liked
     FROM activity_events AS events
     JOIN users ON users.id = events.user_id
     LEFT JOIN activity_likes AS likes ON likes.event_id = events.id
-    WHERE events.event_type = ?
+    LEFT JOIN users AS liking_users ON liking_users.id = likes.user_id AND liking_users.is_active = 1
+    WHERE events.event_type = ? AND users.is_active = 1
     GROUP BY events.id
     ORDER BY events.created_at DESC, events.id DESC
     LIMIT 24
@@ -330,8 +352,8 @@ async function handleApi(request, response, url) {
   if (request.method === "GET" && url.pathname === "/api/recovery-questions") {
     const username = normalizeUsername(url.searchParams.get("username"));
     if (!validUsername(username)) return sendError(response, 400, "Enter a valid username first.");
-    const user = database.prepare("SELECT id FROM users WHERE username_key = ?").get(username.toLocaleLowerCase("en-US"));
-    if (!user) return sendJson(response, 200, { questions: [] });
+    const user = database.prepare("SELECT id, is_active FROM users WHERE username_key = ?").get(username.toLocaleLowerCase("en-US"));
+    if (!user || !user.is_active) return sendJson(response, 200, { questions: [] });
     const rows = database.prepare("SELECT question_id FROM recovery_answers WHERE user_id = ?").all(user.id);
     return sendJson(response, 200, { questions: rows.map((row) => recoveryQuestions.find((item) => item.id === row.question_id)).filter(Boolean) });
   }
@@ -339,11 +361,11 @@ async function handleApi(request, response, url) {
   if (request.method === "POST" && url.pathname === "/api/register") {
     if (!checkSameOrigin(request, response)) return;
     const body = await readBody(request);
-    const username = normalizeUsername(body.username);
+    const username = formatDisplayUsername(normalizeUsername(body.username));
     const password = String(body.password || "");
     const answers = Array.isArray(body.recovery) ? body.recovery : [];
     if (!validUsername(username)) return sendError(response, 400, "Use 3–24 letters, numbers, dots, underscores, or hyphens for your username.");
-    if (password.length < 10 || password.length > 256) return sendError(response, 400, "Use a password between 10 and 256 characters.");
+    if (!/^[A-Za-z0-9]{4,256}$/.test(password)) return sendError(response, 400, "Use 4 to 256 letters and digits only.");
     if (answers.length !== 3 || new Set(answers.map((item) => item.questionId)).size !== 3) return sendError(response, 400, "Choose three different recovery questions.");
     if (answers.some((item) => !recoveryQuestions.some((question) => question.id === item.questionId) || normalizeAnswer(item.answer).length < 2)) {
       return sendError(response, 400, "Answer all three recovery questions.");
@@ -372,7 +394,7 @@ async function handleApi(request, response, url) {
       throw error;
     }
     const token = createSession(userId);
-    const createdUser = database.prepare("SELECT id, username, is_admin, avatar_mime, avatar_version FROM users WHERE id = ?").get(userId);
+    const createdUser = database.prepare("SELECT id, username, is_admin, is_active, avatar_mime, avatar_version FROM users WHERE id = ?").get(userId);
     return sendJson(response, 201, { user: publicUser(createdUser), firstUser }, { "Set-Cookie": sessionCookie(token, sessionLifetimeSeconds) });
   }
 
@@ -380,9 +402,9 @@ async function handleApi(request, response, url) {
     if (!checkSameOrigin(request, response)) return;
     const body = await readBody(request);
     const username = normalizeUsername(body.username);
-    const user = database.prepare("SELECT id, username, password_salt, password_hash, is_admin, avatar_mime, avatar_version FROM users WHERE username_key = ?")
+    const user = database.prepare("SELECT id, username, password_salt, password_hash, is_admin, is_active, avatar_mime, avatar_version FROM users WHERE username_key = ?")
       .get(username.toLocaleLowerCase("en-US"));
-    if (!user) return sendError(response, 401, "Username or password is incorrect.");
+    if (!user || !user.is_active || !user.password_salt || !user.password_hash) return sendError(response, 401, "Username or password is incorrect.");
     const submitted = await scrypt(String(body.password || ""), user.password_salt, 64);
     const expected = Buffer.from(user.password_hash, "hex");
     if (submitted.length !== expected.length || !timingSafeEqual(submitted, expected)) return sendError(response, 401, "Username or password is incorrect.");
@@ -394,8 +416,10 @@ async function handleApi(request, response, url) {
     if (!checkSameOrigin(request, response)) return;
     const body = await readBody(request);
     const username = normalizeUsername(body.username);
-    const user = database.prepare("SELECT id, username FROM users WHERE username_key = ?").get(username.toLocaleLowerCase("en-US"));
-    if (!user || !Array.isArray(body.answers) || body.answers.length !== 3 || String(body.newPassword || "").length < 10) {
+    const user = database.prepare("SELECT id, username, is_active FROM users WHERE username_key = ?").get(username.toLocaleLowerCase("en-US"));
+    const newPassword = String(body.newPassword || "");
+    if (!/^[A-Za-z0-9]{4,256}$/.test(newPassword)) return sendError(response, 400, "Use 4 to 256 letters and digits only.");
+    if (!user || !user.is_active || !Array.isArray(body.answers) || body.answers.length !== 3) {
       return sendError(response, 400, "Recovery details or new password are not valid.");
     }
     const stored = database.prepare("SELECT question_id, answer_salt, answer_hash FROM recovery_answers WHERE user_id = ?").all(user.id);
@@ -409,11 +433,11 @@ async function handleApi(request, response, url) {
     }
     if (!matches) return sendError(response, 401, "Recovery answers did not match.");
     const salt = randomBytes(16).toString("hex");
-    const hash = (await scrypt(String(body.newPassword), salt, 64)).toString("hex");
+    const hash = (await scrypt(newPassword, salt, 64)).toString("hex");
     database.prepare("UPDATE users SET password_salt = ?, password_hash = ? WHERE id = ?").run(salt, hash, user.id);
     database.prepare("DELETE FROM login_sessions WHERE user_id = ?").run(user.id);
     const token = createSession(user.id);
-    const recoveredUser = database.prepare("SELECT id, username, is_admin, avatar_mime, avatar_version FROM users WHERE id = ?").get(user.id);
+    const recoveredUser = database.prepare("SELECT id, username, is_admin, is_active, avatar_mime, avatar_version FROM users WHERE id = ?").get(user.id);
     return sendJson(response, 200, { user: publicUser(recoveredUser) }, { "Set-Cookie": sessionCookie(token, sessionLifetimeSeconds) });
   }
 
@@ -428,9 +452,49 @@ async function handleApi(request, response, url) {
   if (!user) return sendError(response, 401, "Sign in to continue.");
 
   if (request.method === "GET" && url.pathname === "/api/me") return sendJson(response, 200, { user: publicUser(user) });
+  if (request.method === "POST" && url.pathname === "/api/feedback") {
+    if (!checkSameOrigin(request, response)) return;
+    const body = await readBody(request);
+    const category = String(body.category || "");
+    const message = String(body.message || "").trim();
+    if (!["like", "dislike", "suggestion"].includes(category)) return sendError(response, 400, "Choose like, dislike, or suggestion.");
+    if (message.length < 10 || message.length > 2000) return sendError(response, 400, "Feedback must be between 10 and 2,000 characters.");
+    const result = database.prepare("INSERT INTO app_feedback (user_id, category, message, created_at) VALUES (?, ?, ?, ?)")
+      .run(user.id, category, message, Date.now());
+    return sendJson(response, 201, { id: Number(result.lastInsertRowid), ok: true });
+  }
+  if (request.method === "GET" && url.pathname === "/api/feedback") {
+    const items = database.prepare(`
+      SELECT id, category, message, created_at
+      FROM app_feedback WHERE user_id = ?
+      ORDER BY created_at DESC, id DESC LIMIT 30
+    `).all(user.id);
+    return sendJson(response, 200, { items });
+  }
+  if (request.method === "GET" && url.pathname === "/api/feedback/alerts") {
+    if (!user.is_admin && user.username.toLocaleLowerCase("en-US") !== "kenny") return sendError(response, 403, "Feedback notifications are only available to Kenny and administrators.");
+    const afterId = Math.max(0, Number(url.searchParams.get("afterId")) || 0);
+    const items = database.prepare(`
+      SELECT app_feedback.id, users.username, app_feedback.category, app_feedback.created_at
+      FROM app_feedback JOIN users ON users.id = app_feedback.user_id
+      WHERE app_feedback.id > ?
+      ORDER BY app_feedback.id ASC LIMIT 50
+    `).all(afterId);
+    const latestId = database.prepare("SELECT COALESCE(MAX(id), 0) AS id FROM app_feedback").get().id;
+    return sendJson(response, 200, { items, latestId });
+  }
+  if (request.method === "GET" && url.pathname === "/api/admin/feedback") {
+    if (!user.is_admin) return sendError(response, 403, "Administrator access required.");
+    const items = database.prepare(`
+      SELECT app_feedback.id, users.username, app_feedback.category, app_feedback.message, app_feedback.created_at
+      FROM app_feedback JOIN users ON users.id = app_feedback.user_id
+      ORDER BY app_feedback.created_at DESC, app_feedback.id DESC LIMIT 100
+    `).all();
+    return sendJson(response, 200, { items });
+  }
   const avatarMatch = request.method === "GET" && url.pathname.match(/^\/api\/users\/(\d+)\/avatar$/);
   if (avatarMatch) {
-    const imageUser = database.prepare("SELECT avatar_mime, avatar_blob FROM users WHERE id = ?").get(Number(avatarMatch[1]));
+    const imageUser = database.prepare("SELECT avatar_mime, avatar_blob FROM users WHERE id = ? AND is_active = 1").get(Number(avatarMatch[1]));
     if (!imageUser?.avatar_blob) return sendError(response, 404, "Profile photo not found.");
     response.writeHead(200, { "Content-Type": imageUser.avatar_mime, "Cache-Control": "private, max-age=31536000, immutable", "X-Content-Type-Options": "nosniff" });
     response.end(imageUser.avatar_blob);
@@ -452,8 +516,41 @@ async function handleApi(request, response, url) {
   }
   if (request.method === "GET" && url.pathname === "/api/admin/users") {
     if (!user.is_admin) return sendError(response, 403, "Administrator access required.");
-    const users = database.prepare("SELECT id, username, is_admin, avatar_mime, avatar_version FROM users ORDER BY username_key").all();
-    return sendJson(response, 200, { users: users.map(publicUser) });
+    const users = database.prepare(`
+      SELECT id, username, is_admin, is_active, avatar_mime, avatar_version,
+        CASE WHEN length(password_hash) > 0 AND length(password_salt) > 0 THEN 1 ELSE 0 END AS has_password
+      FROM users ORDER BY username_key
+    `).all();
+    return sendJson(response, 200, { users: users.map((account) => ({ ...publicUser(account), hasPassword: Boolean(account.has_password) })) });
+  }
+  const adminAccountStatusMatch = request.method === "POST" && url.pathname.match(/^\/api\/admin\/users\/(\d+)\/(deactivate|reactivate)$/);
+  if (adminAccountStatusMatch) {
+    if (!user.is_admin) return sendError(response, 403, "Administrator access required.");
+    if (!checkSameOrigin(request, response)) return;
+    const targetId = Number(adminAccountStatusMatch[1]);
+    const shouldActivate = adminAccountStatusMatch[2] === "reactivate";
+    if (targetId === user.id) return sendError(response, 403, "You cannot deactivate your own admin account.");
+    const target = database.prepare("SELECT id, is_admin, is_active FROM users WHERE id = ?").get(targetId);
+    if (!target) return sendError(response, 404, "Account not found.");
+    if (!shouldActivate && target.is_admin && database.prepare("SELECT COUNT(*) AS count FROM users WHERE is_admin = 1 AND is_active = 1").get().count <= 1) {
+      return sendError(response, 409, "You cannot deactivate the last active administrator.");
+    }
+    database.prepare("UPDATE users SET is_active = ? WHERE id = ?").run(shouldActivate ? 1 : 0, targetId);
+    if (!shouldActivate) database.prepare("DELETE FROM login_sessions WHERE user_id = ?").run(targetId);
+    const updated = database.prepare("SELECT id, username, is_admin, is_active, avatar_mime, avatar_version FROM users WHERE id = ?").get(targetId);
+    return sendJson(response, 200, { user: publicUser(updated) });
+  }
+  const adminPasswordMatch = request.method === "DELETE" && url.pathname.match(/^\/api\/admin\/users\/(\d+)\/password$/);
+  if (adminPasswordMatch) {
+    if (!user.is_admin) return sendError(response, 403, "Administrator access required.");
+    if (!checkSameOrigin(request, response)) return;
+    const targetId = Number(adminPasswordMatch[1]);
+    if (targetId === user.id) return sendError(response, 403, "You cannot remove your own password.");
+    const target = database.prepare("SELECT id FROM users WHERE id = ?").get(targetId);
+    if (!target) return sendError(response, 404, "Account not found.");
+    database.prepare("UPDATE users SET password_salt = '', password_hash = '' WHERE id = ?").run(targetId);
+    database.prepare("DELETE FROM login_sessions WHERE user_id = ?").run(targetId);
+    return sendJson(response, 200, { ok: true });
   }
   const adminAvatarMatch = url.pathname.match(/^\/api\/admin\/users\/(\d+)\/avatar$/);
   if (adminAvatarMatch && (request.method === "POST" || request.method === "DELETE")) {
