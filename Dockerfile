@@ -1,5 +1,9 @@
 FROM node:24-alpine
 
+LABEL org.opencontainers.image.source="https://github.com/kenchilla1/fitapp" \
+	org.opencontainers.image.title="Lift with Kenny" \
+	org.opencontainers.image.description="Self-hosted workout tracker"
+
 WORKDIR /app
 COPY index.html app.js styles.css split-theme.css account.css origin-theme.css server.js ./
 

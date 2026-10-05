@@ -4,7 +4,11 @@ Lift with Kenny is a self-hosted workout tracker with individual member accounts
 
 ## Unraid
 
-Build and run the included `docker-compose.yml` with the Unraid Compose Manager. It publishes the app on port `4173` and stores SQLite data in `/mnt/user/appdata/origin`, outside the container. That existing appdata path is intentionally unchanged so an existing database is not silently moved. The container runs as UID `99` and GID `100`, matching Unraid's `nobody:users`; make sure the appdata directory is writable by that user.
+The GitHub Actions workflow publishes the container to [GitHub Container Registry](https://github.com/kenchilla1/fitapp/pkgs/container/lift-with-kenny) on pushes to `main` and version tags. In the package settings, set visibility to **Public** before using it on Unraid without registry credentials.
+
+Run the included `docker-compose.yml` with the Unraid Compose Manager. It pulls `ghcr.io/kenchilla1/lift-with-kenny:latest`, publishes the app on port `4173`, and stores SQLite data in `/mnt/user/appdata/origin`, outside the container. That existing appdata path is intentionally unchanged so an existing database is not silently moved. The container runs as UID `99` and GID `100`, matching Unraid's `nobody:users`; make sure the appdata directory is writable by that user.
+
+To publish a new image, push a commit to `main`; version tags also publish a matching image tag.
 
 For a trusted LAN-only setup, open `http://<unraid-address>:4173`. Before making the site internet-accessible, put it behind an HTTPS reverse proxy and set `COOKIE_SECURE=true` in the Compose environment. Do not expose the HTTP port directly to the public internet.
 

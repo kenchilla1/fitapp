@@ -1,7 +1,6 @@
 services:
   lift-with-kenny:
-    build: .
-    image: lift-with-kenny:latest
+    image: ghcr.io/kenchilla1/lift-with-kenny:latest
     container_name: lift-with-kenny
     user: "99:100"
     ports:
