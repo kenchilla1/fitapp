@@ -508,3 +508,34 @@ body.light .calendar-result-exercises span { background:var(--panel); }
 @media(prefers-reduced-motion:reduce) {
   .sidebar,.sidebar-backdrop { transition:none; }
 }
+
+body { font-weight:500; }
+button,input,select,textarea { font-weight:500; }
+body :is(.nav-caption,.eyebrow,.breadcrumb,.nav-icon,.streak-unit,.week-stamp-note,.spark-labels,.micro-note,.record-pill,.quiet-link,.quick-start-foot,.page-footer,.workout-date,.field-label,.session-set,.exercise-tag,.toast,.mobile-nav-item,.workout-section-label,.exercise-last,.history-date,.set-header,.session-duration,.exercise-count,.today-label,.metric-trend,.metric-unit,.session-stats,.history-side,.community-stats,.calendar-legend-item,.calendar-results-heading>span) { font-weight:500; }
+body :is(.section-heading h2,.day-exercise-heading h2,.history-results-heading h2,.community-member strong,.community-workout strong,.history-info strong,.session-description strong) { font-weight:600; }
+.topbar { min-height:70px; }
+.split-switcher { gap:4px; padding:4px; }
+.split-option { min-height:34px; padding:0 12px; border-radius:8px; font-size:12px; font-weight:600; }
+
+@media(max-width:760px) {
+  .main-area { padding-bottom:104px; }
+  .topbar { min-height:78px; grid-template-columns:78px minmax(0,1fr) auto; padding-top:12px; padding-bottom:14px; }
+  .mobile-menu-button { display:flex; width:auto; min-width:74px; height:48px; align-items:center; justify-content:center; gap:5px; padding:0 8px; font-size:12px; font-weight:700; }
+  .mobile-menu-button>span:first-child { font-size:24px; }
+  .mobile-menu-label { font-size:12px; font-weight:700; }
+  .topbar-actions .icon-button,.top-avatar { width:42px; height:42px; }
+  .split-switcher { gap:7px; padding:7px; }
+  .split-option { min-height:48px; padding:8px 7px; border-radius:10px; font-size:14px; font-weight:650; }
+  .welcome-row { padding-top:30px; }
+  .mobile-nav { position:fixed; z-index:29; right:0; bottom:0; left:0; display:grid!important; grid-template-columns:repeat(5,minmax(0,1fr)); align-items:stretch; gap:2px; height:auto; min-height:78px; padding:6px 5px max(7px,env(safe-area-inset-bottom)); border-top:1px solid var(--line); background:var(--panel); box-shadow:0 -8px 24px rgb(0 0 0 / 16%); }
+  .mobile-nav-item { display:grid; min-width:0; min-height:60px; align-content:center; justify-items:center; gap:5px; padding:4px 2px; border:0; border-radius:10px; background:transparent; color:var(--muted); font-size:11px; font-weight:600; letter-spacing:0; line-height:1.15; cursor:pointer; }
+  .mobile-nav-item>span { color:var(--muted); font-size:10px; font-weight:600; }
+  .mobile-nav-item.active { background:var(--panel-soft); color:var(--ink); }
+  .mobile-nav-item.active>span { color:var(--accent); }
+  body.light .mobile-nav { border-color:var(--line); background:var(--panel); }
+}
+@media(max-width:360px) {
+  .topbar { grid-template-columns:72px minmax(0,1fr) auto; }
+  .mobile-menu-button { min-width:68px; }
+  .mobile-nav-item { font-size:10px; }
+}

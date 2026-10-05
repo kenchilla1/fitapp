@@ -67,7 +67,7 @@
 
       <main class="main-area">
         <header class="topbar">
-          <button class="mobile-menu-button" id="mobile-menu-open" type="button" aria-label="Open navigation menu" aria-controls="main-sidebar" aria-expanded="false"><span aria-hidden="true">→</span></button>
+          <button class="mobile-menu-button" id="mobile-menu-open" type="button" aria-label="Open left navigation menu" aria-controls="main-sidebar" aria-expanded="false"><span aria-hidden="true">→</span><span class="mobile-menu-label">Menu</span></button>
           <div class="breadcrumb"><span>MY TRAINING</span><span class="breadcrumb-slash">/</span><span id="breadcrumb-current">OVERVIEW</span></div>
           <div class="split-switcher" role="radiogroup" aria-label="Training split">
             <button class="split-option" type="button" role="radio" aria-checked="false" data-split="ppl">Push / Pull / Legs</button>
@@ -87,7 +87,7 @@
             <article class="metric-cell records-cell"><span class="eyebrow">PERSONAL RECORDS</span><div class="metric-value"><strong id="record-count">1</strong><span class="record-pill">↑ NEW BEST</span></div><div class="record-feature"><span class="record-mark">↗</span><span><strong>Barbell squat</strong><small>176.4 lb <span>·</span> Sep 29</small></span><span class="record-arrow">→</span></div><button class="quiet-link" data-open-view="history" type="button">ALL PERSONAL RECORDS <span>↗</span></button></article>
           </div>
 
-          <div class="section-heading pr-activity-heading"><div><span class="eyebrow">MEMBER RECORDS</span><h2>Recent personal bests</h2></div><span class="micro-note">SHARED WITH ALL MEMBERS</span></div><div class="pr-activity-feed" id="community-prs" aria-live="polite"><div class="community-empty">Loading recent PRs…</div></div>
+          <div class="section-heading pr-activity-heading"><div><span class="eyebrow">MEMBER RECORDS</span><h2>Recent PRs</h2></div><span class="micro-note">SHARED WITH ALL MEMBERS</span></div><div class="pr-activity-feed" id="community-prs" aria-live="polite"><div class="community-empty">Loading recent PRs…</div></div>
 
           <div class="section-heading"><div><span class="eyebrow">PICK UP WHERE YOU LEFT OFF</span><h2>Recent sessions</h2></div><button class="text-link" data-open-view="history" type="button">Full history <span>→</span></button></div>
           <div class="recent-layout"><div class="session-list" id="recent-sessions"></div><aside class="quick-start"><div class="quick-start-number">NEXT SESSION</div><div class="eyebrow" id="split-next-label">PPL · UP NEXT</div><h3 id="split-next-title">Push day</h3><p id="split-next-description">Chest, shoulders and triceps.</p><div class="quick-start-actions"><button class="primary-button" id="start-suggested-session" type="button"><span>＋</span> Start this workout</button><button class="icon-button workout-calendar-button" id="workout-calendar-open" type="button" title="Search previous workouts" aria-label="Search previous workouts">▦</button></div><label class="quick-start-reuse" for="recent-workout-select"><span class="eyebrow">REUSE A RECENT WORKOUT</span><select id="recent-workout-select"><option value="">Choose by body part…</option></select></label><div class="quick-start-foot"><span class="live-dot"></span> YOUR TRAINING, YOUR PACE</div></aside></div>
@@ -135,7 +135,7 @@
         </section>
       </main>
     </div>
-    <nav class="mobile-nav" aria-label="Mobile navigation" hidden><button class="mobile-nav-item active" data-view="dashboard" type="button"><span>01</span>Overview</button><button class="mobile-nav-item" data-view="workout" type="button"><span>02</span>Log</button><button class="mobile-nav-item" data-view="history" type="button"><span>03</span>History</button><button class="mobile-nav-item" data-view="exercises" type="button"><span>04</span>Exercises</button></nav>
+    <nav class="mobile-nav" aria-label="Mobile navigation" hidden><button class="mobile-nav-item active" data-view="dashboard" type="button"><span>01</span>Overview</button><button class="mobile-nav-item" data-view="workout" type="button"><span>02</span>Log</button><button class="mobile-nav-item" data-view="history" type="button"><span>03</span>History</button><button class="mobile-nav-item" data-view="exercises" type="button"><span>04</span>Exercises</button><button class="mobile-nav-item" data-view="feedback" type="button"><span>05</span>Feedback</button></nav>
     <dialog class="set-note-dialog" id="set-note-dialog" aria-labelledby="set-note-title">
       <form method="dialog" class="set-note-form"><div class="applet-heading"><div><span class="eyebrow">SET NOTE</span><h2 id="set-note-title">Set 1</h2></div><button class="applet-close" value="cancel" aria-label="Close notes">×</button></div><textarea id="set-note-text" rows="4" maxlength="240" placeholder="Add a note for this set…"></textarea><button class="primary-button" id="save-set-note" type="button">Save note</button></form>
     </dialog>
