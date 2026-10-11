@@ -6,4 +6,4 @@
 .env
 .env.*
 !.env.example
-npm-debug.log*
+npm-debug.log**.fitnotes

@@ -246,7 +246,7 @@ function createSession(userId) {
 function safeAccountData(raw) {
   const data = raw && typeof raw === "object" && !Array.isArray(raw) ? raw : {};
   return {
-    sessions: Array.isArray(data.sessions) ? data.sessions.slice(-500) : [],
+    sessions: Array.isArray(data.sessions) ? data.sessions.slice(-5000) : [],
     records: data.records && typeof data.records === "object" && !Array.isArray(data.records) ? data.records : {},
     repRecords: data.repRecords && typeof data.repRecords === "object" && !Array.isArray(data.repRecords) ? data.repRecords : {},
     recordDates: data.recordDates && typeof data.recordDates === "object" && !Array.isArray(data.recordDates) ? data.recordDates : {},

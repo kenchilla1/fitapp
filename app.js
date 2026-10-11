@@ -767,7 +767,9 @@ function renderSplitUI(resetWorkoutName = false) {
   const daySelect = document.getElementById("workout-day");
   daySelect.innerHTML = plan.phases.map((splitPhase) => `<option value="${escapeHtml(splitPhase.id)}">${escapeHtml(splitPhase.title)}</option>`).join("");
   daySelect.value = phase.id;
-  updateExerciseOptions();
+  const quickDaySelect = document.getElementById("quick-start-day");
+  quickDaySelect.innerHTML = daySelect.innerHTML;
+  quickDaySelect.value = phase.id;  updateExerciseOptions();
   renderRecentWorkoutOptions();
   const lastWorkout = getLastMatchingWorkout(phase);
   const reuseButton = document.getElementById("load-last-split-workout");
@@ -975,9 +977,11 @@ function renderWorkoutCalendar() {
     const daySessions = sessionsByDate.get(dateValue) || [];
     const markers = daySessions.slice(0, 3).map(renderWorkoutMarker).join("");
     const extra = daySessions.length > 3 ? `<span class="calendar-marker-more">+${daySessions.length - 3}</span>` : "";
-    const classes = ["calendar-day", inMonth ? "" : "is-outside-month", daySessions.length ? "has-workouts" : "", selectedCalendarDate === dateValue ? "is-selected" : "", dateValue === isoDate(today) ? "is-today" : ""].filter(Boolean).join(" ");
+    const classes = ["calendar-day", inMonth ? "" : "is-outside-month", daySessions.length ? "has-workouts" : "", selectedCalendarDate === dateValue ? "is-selected" : "", dateValue === isoDate(today) ? "is-today" : "", pendingCalendarCopy ? "is-copy-target" : ""].filter(Boolean).join(" ");
     return `<button class="${classes}" type="button" data-calendar-date="${dateValue}" aria-pressed="${selectedCalendarDate === dateValue}" aria-label="${escapeHtml(formatDate(date, { month: "long", day: "numeric", year: "numeric" }))}, ${daySessions.length} workouts" ${inMonth ? "" : "disabled"}><span class="calendar-day-number">${date.getDate()}</span><span class="calendar-day-markers">${markers}${extra}</span></button>`;
   }).join("");
+  renderCalendarLegend();
+  if (pendingCalendarCopy) return;
 
   const search = document.getElementById("workout-calendar-search").value.trim().toLocaleLowerCase("en-US");
   const searchResults = [...sessions].sort((first, second) => second.date.localeCompare(first.date) || String(second.id).localeCompare(String(first.id))).filter((session) => {
@@ -994,13 +998,90 @@ function renderWorkoutCalendar() {
     : search ? "Search results" : `Workouts in ${monthLabel}`;
   document.getElementById("calendar-results-count").textContent = String(searchResults.length);
   document.getElementById("workout-calendar-results").innerHTML = searchResults.length ? searchResults.map((session) => {
+    if (selectedCalendarDate) return renderCalendarSessionDetail(session);
     const splitName = TRAINING_SPLITS[session.splitId]?.name || "Workout";
     const dateLabel = formatDate(new Date(`${session.date}T12:00:00`), { weekday: "short", month: "short", day: "numeric", year: "numeric" });
     const exercises = (session.exercises || []).slice(0, 4).map((name) => `<span>${escapeHtml(name)}</span>`).join("");
     const more = session.exercises?.length > 4 ? `<span>+${session.exercises.length - 4}</span>` : "";
     return `<article class="calendar-session-result"><div class="calendar-result-heading">${renderWorkoutMarker(session)}<div><span class="eyebrow">${escapeHtml(dateLabel)} · ${escapeHtml(splitName)}</span><strong>${escapeHtml(session.name)}</strong></div></div><div class="calendar-result-exercises">${exercises}${more}</div><div class="calendar-result-footer"><span>${session.sets} sets · ${session.volume.toLocaleString("en-US")} lb</span><button class="outline-button" type="button" data-calendar-load="${escapeHtml(session.id)}">Load workout</button></div></article>`;
   }).join("") : '<div class="community-empty">No workouts match this date or search.</div>';
-  renderCalendarLegend();
+}
+
+let pendingCalendarCopy = null;
+
+function calendarSessionExercises(session) {
+  if (Array.isArray(session.setDetails) && session.setDetails.length) return session.setDetails;
+  return (session.exercises || []).map((name) => ({ name, sets: [] }));
+}
+
+function renderCalendarSessionDetail(session) {
+  const splitName = TRAINING_SPLITS[session.splitId]?.name || "Workout";
+  const dateLabel = formatDate(new Date(`${session.date}T12:00:00`), { weekday: "short", month: "short", day: "numeric", year: "numeric" });
+  const exercises = calendarSessionExercises(session).map((exercise, exerciseIndex) => {
+    const sets = (exercise.sets || []).map((set, setIndex) => `<li><label class="calendar-copy-check"><input type="checkbox" data-copy-set="${setIndex}" checked /> Set ${setIndex + 1}: ${escapeHtml(set.weight)} lb × ${escapeHtml(set.reps)}${set.notes ? ` · ${escapeHtml(set.notes)}` : ""}</label></li>`).join("");
+    return `<div class="calendar-copy-exercise" data-copy-exercise-index="${exerciseIndex}"><label class="calendar-copy-check"><input type="checkbox" data-copy-exercise checked /> <strong>${escapeHtml(exercise.name)}</strong></label>${sets ? `<ol>${sets}</ol>` : ""}</div>`;
+  }).join("");
+  return `<article class="calendar-session-result" data-copy-session="${escapeHtml(session.id)}"><div class="calendar-result-heading">${renderWorkoutMarker(session)}<div><span class="eyebrow">${escapeHtml(dateLabel)} · ${escapeHtml(splitName)}</span><strong>${escapeHtml(session.name)}</strong></div></div>${exercises}<div class="calendar-result-footer"><span>${session.sets} sets · ${Number(session.volume || 0).toLocaleString("en-US")} lb</span><div class="calendar-result-actions"><button class="outline-button" type="button" data-calendar-load="${escapeHtml(session.id)}">Load workout</button><button class="outline-button" type="button" data-calendar-copy="${escapeHtml(session.id)}">Copy to another day</button></div></div></article>`;
+}
+
+function setCalendarCopyMode(copy) {
+  pendingCalendarCopy = copy;
+  const banner = document.getElementById("calendar-copy-banner");
+  banner.hidden = !copy;
+  if (copy) document.getElementById("calendar-copy-text").textContent = `Select the day to copy “${copy.name}” to.`;
+}
+
+function startCalendarCopy(article) {
+  const session = sessions.find((item) => String(item.id) === article.dataset.copySession);
+  if (!session) return;
+  const source = calendarSessionExercises(session);
+  const exercises = [];
+  article.querySelectorAll("[data-copy-exercise-index]").forEach((block) => {
+    const exercise = source[Number(block.dataset.copyExerciseIndex)];
+    if (!exercise || !block.querySelector("[data-copy-exercise]").checked) return;
+    const setBoxes = [...block.querySelectorAll("[data-copy-set]")];
+    const sets = setBoxes.filter((box) => box.checked).map((box) => ({ ...exercise.sets[Number(box.dataset.copySet)] }));
+    if (setBoxes.length && !sets.length) return;
+    exercises.push({ ...exercise, sets });
+  });
+  if (!exercises.length) {
+    showToast("Check at least one exercise or set to copy.");
+    return;
+  }
+  setCalendarCopyMode({ session, exercises, name: session.name });
+  renderWorkoutCalendar();
+}
+
+function copyWorkoutToDate(dateValue) {
+  const { session, exercises } = pendingCalendarCopy;
+  if (dateValue === session.date) {
+    showToast("Choose a different day to copy to.");
+    return;
+  }
+  const details = exercises.map((exercise) => ({ ...exercise, sets: exercise.sets.map((set) => ({ ...set })) }));
+  const sets = details.reduce((total, exercise) => total + exercise.sets.length, 0);
+  const volume = details.reduce((total, exercise) => total + exercise.sets.reduce((sum, set) => sum + (Number(set.weight) || 0) * (Number(set.reps) || 0), 0), 0);
+  sessions.push({
+    id: `session-${Date.now()}-copy`,
+    date: dateValue,
+    name: session.name,
+    duration: session.duration,
+    exercises: details.map((exercise) => exercise.name),
+    volume: Math.round(volume),
+    weightUnit: "lb",
+    sets,
+    notes: "",
+    splitId: session.splitId,
+    programDay: session.programDay,
+    setDetails: details,
+  });
+  saveData();
+  setCalendarCopyMode(null);
+  selectedCalendarDate = dateValue;
+  document.getElementById("workout-calendar-month").value = dateValue.slice(0, 7);
+  renderWorkoutCalendar();
+  renderDashboard();
+  showToast(`Copied ${details.length} exercise${details.length === 1 ? "" : "s"} to ${formatDate(new Date(`${dateValue}T12:00:00`), { month: "short", day: "numeric", year: "numeric" })}.`);
 }
 
 function populateExerciseOptions() {
@@ -1372,6 +1453,7 @@ document.getElementById("mobile-menu-open").addEventListener("click", openMobile
 document.getElementById("mobile-menu-open").addEventListener("pointerup", (event) => {
   if (event.pointerType === "touch") openMobileMenu();
 });
+document.getElementById("mobile-menu-open").addEventListener("touchend", openMobileMenu, { passive: true });
 document.getElementById("sidebar-close").addEventListener("click", () => {
   closeMobileMenu();
   document.getElementById("mobile-menu-open").focus();
@@ -1494,6 +1576,11 @@ document.getElementById("workout-day").addEventListener("change", (event) => {
   renderSplitUI();
   renderDraftExercises();
   if (document.getElementById("exercises-view").classList.contains("active")) renderLibrary();
+});
+document.getElementById("quick-start-day").addEventListener("change", (event) => {
+  selectedWorkoutPhaseId = event.target.value;
+  renderSplitUI();
+  renderDraftExercises();
 });
 document.getElementById("save-custom-exercise").addEventListener("click", saveCustomExercise);
 document.getElementById("custom-exercise-name").addEventListener("keydown", (event) => {
@@ -1748,6 +1835,11 @@ document.getElementById("workout-calendar-open").addEventListener("click", () =>
   document.getElementById("workout-calendar-dialog").showModal();
 });
 document.getElementById("workout-calendar-close").addEventListener("click", () => document.getElementById("workout-calendar-dialog").close());
+document.getElementById("workout-calendar-dialog").addEventListener("close", () => setCalendarCopyMode(null));
+document.getElementById("calendar-copy-cancel").addEventListener("click", () => {
+  setCalendarCopyMode(null);
+  renderWorkoutCalendar();
+});
 document.getElementById("workout-calendar-search").addEventListener("input", () => {
   selectedCalendarDate = null;
   renderWorkoutCalendar();
@@ -1759,10 +1851,27 @@ document.getElementById("workout-calendar-month").addEventListener("change", () 
 document.getElementById("workout-calendar-grid").addEventListener("click", (event) => {
   const day = event.target.closest("[data-calendar-date]");
   if (!day || day.disabled) return;
+  if (pendingCalendarCopy) {
+    copyWorkoutToDate(day.dataset.calendarDate);
+    return;
+  }
   selectedCalendarDate = selectedCalendarDate === day.dataset.calendarDate ? null : day.dataset.calendarDate;
   renderWorkoutCalendar();
 });
+document.getElementById("workout-calendar-results").addEventListener("change", (event) => {
+  const block = event.target.closest("[data-copy-exercise-index]");
+  if (!block) return;
+  const exerciseBox = block.querySelector("[data-copy-exercise]");
+  const setBoxes = [...block.querySelectorAll("[data-copy-set]")];
+  if (event.target === exerciseBox) setBoxes.forEach((box) => { box.checked = exerciseBox.checked; });
+  else if (setBoxes.length) exerciseBox.checked = setBoxes.some((box) => box.checked);
+});
 document.getElementById("workout-calendar-results").addEventListener("click", (event) => {
+  const copyButton = event.target.closest("[data-calendar-copy]");
+  if (copyButton) {
+    startCalendarCopy(copyButton.closest("[data-copy-session]"));
+    return;
+  }
   const loadButton = event.target.closest("[data-calendar-load]");
   if (!loadButton) return;
   const previousWorkout = sessions.find((session) => String(session.id) === loadButton.dataset.calendarLoad);
