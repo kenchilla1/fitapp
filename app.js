@@ -962,6 +962,7 @@ function renderCalendarLegend() {
 }
 
 function renderWorkoutCalendar() {
+  document.querySelector(".workout-calendar-shell").dataset.step = pendingCalendarCopy ? "pick" : selectedCalendarDate ? "day" : "browse";
   const monthInput = document.getElementById("workout-calendar-month");
   if (!monthInput.value) monthInput.value = isoDate(today).slice(0, 7);
   const [year, monthNumber] = monthInput.value.split("-").map(Number);
@@ -1050,6 +1051,7 @@ function startCalendarCopy(article) {
   }
   setCalendarCopyMode({ session, exercises, name: session.name });
   renderWorkoutCalendar();
+  document.querySelector(".workout-calendar-shell").scrollTop = 0;
 }
 
 function copyWorkoutToDate(dateValue) {
@@ -1081,6 +1083,7 @@ function copyWorkoutToDate(dateValue) {
   document.getElementById("workout-calendar-month").value = dateValue.slice(0, 7);
   renderWorkoutCalendar();
   renderDashboard();
+  document.querySelector(".workout-calendar-shell").scrollTop = 0;
   showToast(`Copied ${details.length} exercise${details.length === 1 ? "" : "s"} to ${formatDate(new Date(`${dateValue}T12:00:00`), { month: "short", day: "numeric", year: "numeric" })}.`);
 }
 
@@ -1845,8 +1848,13 @@ document.getElementById("workout-calendar-search").addEventListener("input", () 
   renderWorkoutCalendar();
 });
 document.getElementById("workout-calendar-month").addEventListener("change", () => {
+  if (!pendingCalendarCopy) selectedCalendarDate = null;
+  renderWorkoutCalendar();
+});
+document.getElementById("calendar-day-back").addEventListener("click", () => {
   selectedCalendarDate = null;
   renderWorkoutCalendar();
+  document.querySelector(".workout-calendar-shell").scrollTop = 0;
 });
 document.getElementById("workout-calendar-grid").addEventListener("click", (event) => {
   const day = event.target.closest("[data-calendar-date]");
@@ -1855,8 +1863,9 @@ document.getElementById("workout-calendar-grid").addEventListener("click", (even
     copyWorkoutToDate(day.dataset.calendarDate);
     return;
   }
-  selectedCalendarDate = selectedCalendarDate === day.dataset.calendarDate ? null : day.dataset.calendarDate;
+  selectedCalendarDate = day.dataset.calendarDate;
   renderWorkoutCalendar();
+  document.querySelector(".workout-calendar-shell").scrollTop = 0;
 });
 document.getElementById("workout-calendar-results").addEventListener("change", (event) => {
   const block = event.target.closest("[data-copy-exercise-index]");
