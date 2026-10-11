@@ -645,3 +645,9 @@ body :is(.section-heading h2,.day-exercise-heading h2,.history-results-heading h
   #workout-view .detail-set-edit strong,#workout-view .detail-set-weight { font-size:28px; }
   #workout-view .detail-set-edit small { font-size:14px; }
 }
+
+/* Phones render the app slightly larger so small labels stay readable */
+@media(max-width:760px) {
+  .main-area { zoom:1.1; }
+  .mobile-menu-button>.mobile-menu-label { font-size:15px; }
+}
