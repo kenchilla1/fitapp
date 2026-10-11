@@ -554,7 +554,7 @@ body :is(.section-heading h2,.day-exercise-heading h2,.history-results-heading h
   .mobile-nav-item { flex-basis:90px; min-width:90px; font-size:14px; }
 }
 /* Phone text floor: nothing smaller than 12px */
-@media(max-width:760px) {
+@media(max-width:760px), (pointer:coarse) and (max-width:1400px) {
   .account-gate-caption,
   .account-gate-footer,
   .account-panel-heading .eyebrow,
@@ -874,12 +874,12 @@ body :is(.section-heading h2,.day-exercise-heading h2,.history-results-heading h
 }
 
 /* Phones render the app slightly larger so small labels stay readable */
-@media(max-width:760px) {
+@media(max-width:760px), (pointer:coarse) and (max-width:1400px) {
   .mobile-menu-button>.mobile-menu-label { font-size:15px; }
 }
 
 /* Five bottom tabs share the screen width instead of scrolling sideways */
-@media(max-width:760px) {
+@media(max-width:760px), (pointer:coarse) and (max-width:1400px) {
   .mobile-nav { gap:4px; width:100%; max-width:100%; box-sizing:border-box; padding-right:6px; padding-left:6px; overflow-x:hidden!important; }
   .mobile-nav-item { flex:1 1 0; width:auto; min-width:0; max-width:none; padding:8px 2px; font-size:13px; }
   .breadcrumb { display:none; }
