@@ -13,11 +13,12 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@400;500;600;700;800&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="styles.css?v=calendar-copy-20261016" />
-    <link rel="stylesheet" href="split-theme.css?v=calendar-copy-20261016" />
-    <link rel="stylesheet" href="account.css?v=calendar-copy-20261016" />
-    <link rel="stylesheet" href="origin-theme.css?v=calendar-copy-20261016" />
-    <script src="app.js?v=calendar-copy-20261016" defer></script>
+    <link rel="stylesheet" href="styles.css?v=fitnotes-flow-20261012" />
+    <link rel="stylesheet" href="split-theme.css?v=fitnotes-flow-20261012" />
+    <link rel="stylesheet" href="account.css?v=fitnotes-flow-20261012" />
+    <link rel="stylesheet" href="origin-theme.css?v=fitnotes-flow-20261012" />
+    <link rel="stylesheet" href="fitnotes.css?v=fitnotes-flow-20261012" />
+    <script src="app.js?v=fitnotes-flow-20261012" defer></script>
   </head>
   <body>
     <section class="account-gate" id="account-gate" aria-label="Member account portal">
@@ -102,23 +103,33 @@
           <footer class="page-footer"><span>LIFT WITH KENNY <span class="footer-mark">KG</span></span><span>MADE FOR THE WORK, NOT THE SHOW.</span><span id="footer-year"></span></footer>
         </section>
 
-        <section class="view" id="workout-view" aria-labelledby="workout-title"><div class="page-heading"><div><div class="eyebrow">SESSION BUILDER</div><h1 id="workout-title">Log a workout<span class="title-period">.</span></h1><p class="intro-copy">Pick your exercises. Record what you actually did.</p></div><div class="workout-date"><span class="eyebrow">TODAY</span><strong id="workout-date-label"></strong></div></div><div class="split-suggestion"><div class="split-suggestion-copy"><span class="eyebrow" id="workout-split-label">YOUR PUSH / PULL / LEGS PLAN</span><strong id="workout-suggestion-title">Push</strong><span class="split-suggestion-moves" id="workout-suggestion-moves"></span></div><div class="split-suggestion-actions"><button class="outline-button" id="load-split-suggestion" type="button">＋ Add suggested exercises</button><button class="outline-button" id="load-last-split-workout" type="button" disabled>No previous Push workout</button></div></div><div id="workout-summary-panel">
-          <div class="workout-controls">
-            <div class="workout-name-fields"><label class="field-label" for="workout-name">WORKOUT NAME<input id="workout-name" maxlength="48" value="Strength training" /></label><label class="field-label" for="workout-day">SPLIT DAY<select id="workout-day" aria-label="Choose a workout day"></select></label></div><label class="field-label" for="exercise-select">ADD EXERCISE<span class="select-wrap"><select id="exercise-select"><option value="">Choose an exercise…</option></select></span></label><button class="outline-button" id="add-exercise" type="button">＋ Add exercise</button></div>
-            <details class="custom-exercise-panel"><summary>＋ Add a custom exercise</summary><div class="custom-exercise-fields"><label class="field-label" for="custom-exercise-name">EXERCISE NAME<input id="custom-exercise-name" maxlength="64" placeholder="e.g. Single-arm cable row" /></label><label class="field-label" for="custom-exercise-group">BODY PART<select id="custom-exercise-group"></select></label><button class="outline-button" id="save-custom-exercise" type="button">Add to exercise list</button></div></details>
+        <section class="view" id="workout-view" aria-labelledby="workout-title"><div class="page-heading"><div><div class="eyebrow">SESSION BUILDER</div><h1 id="workout-title">Log a workout<span class="title-period">.</span></h1><p class="intro-copy">Pick your exercises. Record what you actually did.</p></div><div class="workout-date"><span class="eyebrow">TODAY</span><strong id="workout-date-label"></strong></div></div><div id="workout-summary-panel">
             <div class="day-exercise-heading"><div><span class="eyebrow">TODAY'S WORKOUT</span><h2 id="day-summary-title">Push</h2></div><span id="day-exercise-count" class="exercise-count">0 EXERCISES</span></div>
             <div id="workout-exercises" class="workout-exercises"></div>
-            <div class="workout-bottom"><span class="muted-note">Changes are kept in this browser.</span><button class="primary-button" id="save-workout" type="button"><span>✓</span> Finish workout</button></div>
+            <button class="add-exercise-cta" id="open-exercise-picker" type="button"><span aria-hidden="true">＋</span> Add exercise</button>
+            <div class="workout-bottom"><span class="muted-note">Saved on this device as you go.</span><div class="workout-bottom-actions"><button class="auth-text-button discard-workout" id="discard-workout" type="button">Discard</button><button class="primary-button" id="save-workout" type="button"><span>✓</span> Finish workout</button></div></div>
+            <div class="workout-plan-heading"><span class="eyebrow">PLAN &amp; SETTINGS</span></div>
+            <div class="split-suggestion"><div class="split-suggestion-copy"><span class="eyebrow" id="workout-split-label">YOUR PUSH / PULL / LEGS PLAN</span><strong id="workout-suggestion-title">Push</strong><span class="split-suggestion-moves" id="workout-suggestion-moves"></span></div><div class="split-suggestion-actions"><button class="outline-button" id="load-split-suggestion" type="button">＋ Add suggested exercises</button><button class="outline-button" id="load-last-split-workout" type="button" disabled>No previous Push workout</button></div></div>
+            <div class="workout-controls">
+              <div class="workout-name-fields"><label class="field-label" for="workout-name">WORKOUT NAME<input id="workout-name" maxlength="48" value="Strength training" /></label><label class="field-label" for="workout-day">SPLIT DAY<select id="workout-day" aria-label="Choose a workout day"></select></label></div>
+            </div>
+            <details class="custom-exercise-panel"><summary>＋ Add a custom exercise</summary><div class="custom-exercise-fields"><label class="field-label" for="custom-exercise-name">EXERCISE NAME<input id="custom-exercise-name" maxlength="64" placeholder="e.g. Single-arm cable row" /></label><label class="field-label" for="custom-exercise-group">BODY PART<select id="custom-exercise-group"></select></label><button class="outline-button" id="save-custom-exercise" type="button">Add to exercise list</button></div></details>
           </div>
           <section class="exercise-detail-panel" id="exercise-detail-panel" hidden aria-labelledby="exercise-detail-title">
             <button class="exercise-back-button" id="exercise-detail-back" type="button"><span aria-hidden="true">←</span> Back to <span id="exercise-detail-back-label">Push</span></button>
-            <div class="exercise-detail-heading"><span class="eyebrow" id="exercise-detail-group">CHEST</span><h2 id="exercise-detail-title">Exercise</h2><span class="exercise-detail-progress" id="exercise-detail-progress"></span></div>
+            <div class="exercise-detail-heading"><span class="eyebrow" id="exercise-detail-group">CHEST</span><h2 id="exercise-detail-title">Exercise</h2><span class="exercise-detail-progress" id="exercise-detail-progress"></span><p class="exercise-last-time" id="exercise-last-time"></p></div>
+            <div class="exercise-tabs" role="tablist" aria-label="Exercise views"><button type="button" role="tab" data-exercise-tab="track" aria-selected="true">Track</button><button type="button" role="tab" data-exercise-tab="history" aria-selected="false">History</button><button type="button" role="tab" data-exercise-tab="graph" aria-selected="false">Graph</button></div>
+            <div class="exercise-tab-pane" data-exercise-pane="track">
             <section class="top-set-editor" aria-label="Add or edit a set"><div class="top-set-editor-heading"><span class="eyebrow" id="set-editor-heading">ADD SET</span><span class="eyebrow">WEIGHT LB · REPS</span></div><div class="top-set-fields">
               <div class="detail-set-field"><span class="detail-field-label">WEIGHT LB</span><div class="detail-stepper"><button class="step-button" data-detail-step="weight" data-delta="-5" type="button" aria-label="Decrease weight by 5 pounds">−</button><button class="detail-number-input" data-detail-input="weight" data-set-field="weight" type="button" aria-label="Enter set weight">0</button><button class="step-button" data-detail-step="weight" data-delta="5" type="button" aria-label="Increase weight by 5 pounds">+</button></div></div>
               <div class="detail-set-field"><span class="detail-field-label">REPS</span><div class="detail-stepper"><button class="step-button" data-detail-step="reps" data-delta="-1" type="button" aria-label="Decrease reps by 1">−</button><button class="detail-number-input" data-detail-input="reps" data-set-field="reps" type="button" aria-label="Enter repetitions">0</button><button class="step-button" data-detail-step="reps" data-delta="1" type="button" aria-label="Increase reps by 1">+</button></div></div>
             </div><div class="detail-set-actions"><button class="primary-button save-detail-set" id="save-detail-set" type="button"><span>＋</span> Save</button><button class="outline-button clear-delete-set" id="clear-delete-set" type="button">Clear</button></div></section>
+            <div class="rest-timer" id="rest-timer" role="timer" aria-live="off" hidden><span class="eyebrow">REST</span><strong id="rest-timer-value">1:30</strong><button class="rest-timer-button" data-rest-adjust="-15" type="button" aria-label="Fifteen seconds less rest">−15s</button><button class="rest-timer-button" data-rest-adjust="15" type="button" aria-label="Fifteen seconds more rest">+15s</button><button class="rest-timer-button rest-timer-stop" id="rest-timer-stop" type="button" aria-label="Stop rest timer">✕</button></div>
             <div class="exercise-detail-section-heading"><h3>Sets</h3><span class="eyebrow">TAP A SET TO EDIT</span></div><div class="detail-set-list" id="detail-set-list"></div>
             <label class="field-label detail-notes-label" for="detail-exercise-notes">EXERCISE NOTES<input id="detail-exercise-notes" maxlength="180" placeholder="Add a note for this movement…" /></label>
+            </div>
+            <div class="exercise-tab-pane" data-exercise-pane="history" hidden><div class="exercise-history-list" id="exercise-history-list"></div></div>
+            <div class="exercise-tab-pane" data-exercise-pane="graph" hidden><div class="graph-metric-switch" role="radiogroup" aria-label="Graph measure"><button type="button" role="radio" data-graph-metric="e1rm" aria-checked="true">Est. 1RM</button><button type="button" role="radio" data-graph-metric="weight" aria-checked="false">Max weight</button><button type="button" role="radio" data-graph-metric="volume" aria-checked="false">Volume</button></div><div class="exercise-graph" id="exercise-graph"></div></div>
           </section>
         </section>
 
@@ -145,6 +156,9 @@
     </dialog>
     <dialog class="exercise-group-dialog" id="exercise-group-dialog" aria-labelledby="exercise-group-title">
       <div class="exercise-group-applet"><div class="applet-heading"><div><span class="eyebrow" id="grouping-day-label">WORKOUT EXERCISES</span><h2 id="exercise-group-title">Organize exercises</h2></div><button class="applet-close" id="close-exercise-groups" type="button" aria-label="Close exercise groups">×</button></div><div class="grouping-toolbar"><button class="outline-button" id="link-selected-exercises" type="button">↗ Link selected</button><button class="outline-button grouping-trash" id="delete-selected-exercises" type="button" aria-label="Delete selected exercises" title="Delete selected exercises">🗑</button></div><div id="exercise-group-list" class="exercise-group-list"></div><div class="grouping-footer"><span class="eyebrow">SELECT 2+ TO LINK · DRAG OR USE ARROWS TO REORDER</span><button class="primary-button" id="done-exercise-groups" type="button">Done</button></div></div>
+    </dialog>
+    <dialog class="exercise-picker-dialog" id="exercise-picker-dialog" aria-labelledby="exercise-picker-title">
+      <div class="exercise-picker"><div class="applet-heading"><div><span class="eyebrow" id="exercise-picker-day">ADD TO WORKOUT</span><h2 id="exercise-picker-title">Add exercise</h2></div><button class="applet-close" id="exercise-picker-close" type="button" aria-label="Close exercise picker">×</button></div><input class="exercise-picker-search" id="exercise-picker-search" type="search" placeholder="Search or create an exercise…" aria-label="Search exercises" autocomplete="off" /><div class="exercise-picker-groups" id="exercise-picker-groups" role="radiogroup" aria-label="Body part"></div><div class="exercise-picker-list" id="exercise-picker-list"></div></div>
     </dialog>
     <dialog class="number-pad-dialog" id="number-pad-dialog" aria-labelledby="number-pad-title">
       <div class="number-pad">

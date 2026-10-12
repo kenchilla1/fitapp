@@ -509,7 +509,9 @@ function applyAccountData(data) {
 async function activateAccount(user, data) {
   currentUser = user;
   startIdleLogoutTimer();
+  const storedDraft = readStoredDraft(user);
   applyAccountData(data);
+  restoreDraft(storedDraft);
   document.getElementById("current-username").textContent = user.username;
   updateProfileAvatarUI();
   document.getElementById("app-shell").hidden = false;
@@ -733,11 +735,6 @@ function renderRecentWorkoutOptions() {
 
 function updateExerciseOptions() {
   const { phase } = getSelectedSplitSession();
-  const selected = document.getElementById("exercise-select").value;
-  const exercises = [...new Set([...phase.exercises, ...customExercises.filter((exercise) => phase.groups.includes(exercise.group)).map((exercise) => exercise.name)])];
-  const select = document.getElementById("exercise-select");
-  select.innerHTML = '<option value="">Choose a ' + escapeHtml(phase.title.toLowerCase()) + ' exercise…</option>' + exercises.map((name) => `<option value="${escapeHtml(name)}">${escapeHtml(name)} — ${escapeHtml(muscleGroupFor(name))}</option>`).join("");
-  if (exercises.includes(selected)) select.value = selected;
   document.getElementById("custom-exercise-group").innerHTML = phase.groups.map((group) => `<option value="${escapeHtml(group)}">${escapeHtml(group)}</option>`).join("");
 }
 
@@ -758,7 +755,9 @@ function renderSplitUI(resetWorkoutName = false) {
   document.getElementById("split-next-description").textContent = `${phase.focus}. ${plan.description}`;
   document.getElementById("workout-split-label").textContent = `YOUR ${plan.name.toUpperCase()} PLAN`;
   document.getElementById("workout-suggestion-title").textContent = phase.title;
-  document.getElementById("workout-suggestion-moves").textContent = phase.exercises.join(" · ");
+  document.getElementById("workout-suggestion-moves").textContent = phase.exercises.length > 6
+    ? `${phase.exercises.slice(0, 6).join(" · ")} · +${phase.exercises.length - 6} more`
+    : phase.exercises.join(" · ");
   const workoutName = document.getElementById("workout-name");
   if (resetWorkoutName || !workoutName.value || workoutName.value === suggestedWorkoutName) {
     workoutName.value = phase.title;
@@ -791,17 +790,47 @@ function selectTrainingSplit(splitId) {
 
 function loadSuggestedWorkout() {
   const { phase } = getSelectedSplitSession();
-  document.getElementById("workout-name").value = phase.title;
-  suggestedWorkoutName = phase.title;
-  draftExercises = [];
-  phase.exercises.forEach((name) => {
-    addExercise(name);
-  });
+  if (!draftExercises.length) {
+    document.getElementById("workout-name").value = phase.title;
+    suggestedWorkoutName = phase.title;
+  }
+  const added = phase.exercises.filter((name) => addExercise(name, { quiet: true }));
   renderNavigation("workout");
+  showToast(added.length ? `Added ${added.length} suggested exercise${added.length === 1 ? "" : "s"}.` : "Suggested exercises are already in this workout.");
+}
+
+function draftHasLoggedSets() {
+  return draftExercises.some((exercise) => exercise.sets.some((set) => set.done));
+}
+
+function confirmReplaceDraft() {
+  return !draftHasLoggedSets() || window.confirm("Replace your workout in progress? Sets you've already logged will be discarded.");
+}
+
+function startNextWorkout() {
+  if (draftExercises.length) {
+    renderNavigation("workout");
+    showToast("Picking up your workout in progress.");
+    return;
+  }
+  const lastWorkout = getLastMatchingWorkout();
+  if (lastWorkout) loadPreviousWorkout(lastWorkout, `Loaded your last ${getSelectedSplitSession().phase.title} workout.`);
+  else renderNavigation("workout");
+}
+
+function discardWorkout() {
+  if (!draftExercises.length) return;
+  if (!window.confirm("Discard this workout? Nothing from it will be saved.")) return;
+  draftExercises = [];
+  stopRestTimer();
+  if (activeExerciseId) closeExerciseDetail();
+  workoutStartedAt = Date.now();
+  renderDraftExercises();
+  showToast("Workout discarded.");
 }
 
 function loadPreviousWorkout(previousWorkout, toastMessage = "") {
-  if (!previousWorkout) return;
+  if (!previousWorkout || !confirmReplaceDraft()) return;
   const savedExercises = previousWorkout.setDetails || [];
   const exerciseNames = Array.isArray(previousWorkout.exercises)
     ? previousWorkout.exercises
@@ -847,6 +876,7 @@ function loadLastMatchingWorkout() {
 
 function renderNavigation(view) {
   closeMobileMenu();
+  document.body.dataset.view = view;
   document.querySelectorAll("[data-view]").forEach((button) => {
     button.classList.toggle("active", button.dataset.view === view);
   });
@@ -1088,35 +1118,98 @@ function copyWorkoutToDate(dateValue) {
 }
 
 function populateExerciseOptions() {
-  const select = document.getElementById("exercise-select");
-  select.innerHTML = '<option value="">Choose an exercise…</option>' + EXERCISES.map((exercise) => `<option value="${escapeHtml(exercise.name)}">${escapeHtml(exercise.name)} — ${escapeHtml(exercise.group)}</option>`).join("");
   const muscleFilter = document.getElementById("muscle-filter");
   muscleFilter.innerHTML = '<option value="all">All muscle groups</option>' + muscleGroups.map((group) => `<option value="${group}">${group}</option>`).join("");
 }
 
-function saveCustomExercise() {
-  const nameInput = document.getElementById("custom-exercise-name");
-  const name = toTitleCase(nameInput.value);
-  const group = document.getElementById("custom-exercise-group").value;
+function createCustomExercise(rawName, group) {
+  const name = toTitleCase(rawName);
   if (!name || !muscleGroups.includes(group)) {
     showToast("Enter an exercise name and body part.");
-    return;
+    return null;
   }
   if (EXERCISES.some((exercise) => exercise.name.toLocaleLowerCase("en-US") === name.toLocaleLowerCase("en-US"))) {
     showToast("That exercise is already in your library.");
-    return;
+    return null;
   }
   const exercise = { name, group, type: "Custom" };
   customExercises.push(exercise);
   EXERCISES.push(exercise);
   saveData();
+  if (document.getElementById("exercises-view").classList.contains("active")) renderLibrary();
+  return name;
+}
+
+function saveCustomExercise() {
+  const nameInput = document.getElementById("custom-exercise-name");
+  const name = createCustomExercise(nameInput.value, document.getElementById("custom-exercise-group").value);
+  if (!name) return;
   nameInput.value = "";
-  updateExerciseOptions();
-  document.getElementById("exercise-select").value = name;
   addExercise(name);
   document.querySelector(".custom-exercise-panel").open = false;
-  if (document.getElementById("exercises-view").classList.contains("active")) renderLibrary();
-  showToast(`${name} added to ${TRAINING_SPLITS[selectedSplitId].name}.`);
+  showToast(`${name} added to your exercise list.`);
+}
+
+let exercisePickerGroup = "suggested";
+
+function exerciseLastUsed() {
+  const lastUsed = new Map();
+  [...sessions].sort((first, second) => first.date.localeCompare(second.date)).forEach((session) => {
+    (session.exercises || []).forEach((name) => lastUsed.set(name, session.date));
+  });
+  return lastUsed;
+}
+
+function suggestedPickerExercises() {
+  const { phase } = getSelectedSplitSession();
+  const sameDay = [...sessions]
+    .filter((session) => session.splitId === selectedSplitId && session.programDay === phase.id)
+    .sort((first, second) => second.date.localeCompare(first.date))
+    .slice(0, 4)
+    .flatMap((session) => session.exercises || []);
+  return [...new Set([...sameDay, ...phase.exercises])];
+}
+
+function renderExercisePicker() {
+  const { phase } = getSelectedSplitSession();
+  document.getElementById("exercise-picker-day").textContent = `ADD TO ${phase.title.toUpperCase()}`;
+  const chips = [["suggested", "Suggested"], ["all", "All"], ...muscleGroups.map((group) => [group, group])];
+  document.getElementById("exercise-picker-groups").innerHTML = chips.map(([value, label]) =>
+    `<button type="button" role="radio" data-picker-group="${escapeHtml(value)}" aria-checked="${exercisePickerGroup === value}">${escapeHtml(label)}</button>`).join("");
+  const query = document.getElementById("exercise-picker-search").value.trim().toLocaleLowerCase("en-US");
+  const lastUsed = exerciseLastUsed();
+  const inWorkout = new Set(draftExercises.map((exercise) => exercise.name));
+  const allNames = [...new Set([...EXERCISES.map((exercise) => exercise.name), ...sessions.flatMap((session) => session.exercises || [])])];
+  let names;
+  if (query) names = allNames.filter((name) => name.toLocaleLowerCase("en-US").includes(query)).sort((first, second) => first.localeCompare(second));
+  else if (exercisePickerGroup === "suggested") names = suggestedPickerExercises();
+  else names = allNames.filter((name) => exercisePickerGroup === "all" || muscleGroupFor(name) === exercisePickerGroup).sort((first, second) => first.localeCompare(second));
+  const rows = names.map((name) => {
+    const used = lastUsed.get(name);
+    const meta = [muscleGroupFor(name).toUpperCase(), personalRecords[name] ? `BEST ${personalRecords[name]} LB` : "", used ? `LAST ${formatDate(new Date(`${used}T12:00:00`)).toUpperCase()}` : ""].filter(Boolean).join(" · ");
+    const added = inWorkout.has(name);
+    return `<button class="exercise-picker-item" type="button" data-pick-exercise="${escapeHtml(name)}" ${added ? "disabled" : ""}><strong>${escapeHtml(name)}</strong><span>${escapeHtml(meta)}</span>${added ? '<em>IN WORKOUT</em>' : ""}</button>`;
+  }).join("");
+  const exactMatch = allNames.some((name) => name.toLocaleLowerCase("en-US") === query);
+  const createGroup = muscleGroups.includes(exercisePickerGroup) ? exercisePickerGroup : phase.groups[0];
+  const createRow = query && !exactMatch
+    ? `<div class="exercise-picker-create"><span>Create “${escapeHtml(toTitleCase(query))}” in</span><select id="exercise-picker-create-group" aria-label="Body part for new exercise">${muscleGroups.map((group) => `<option value="${group}" ${group === createGroup ? "selected" : ""}>${group}</option>`).join("")}</select><button class="primary-button" type="button" id="exercise-picker-create">Create</button></div>`
+    : "";
+  document.querySelectorAll("[data-picker-group]").forEach((button) => button.setAttribute("aria-checked", String(!query && exercisePickerGroup === button.dataset.pickerGroup)));
+  document.getElementById("exercise-picker-list").innerHTML = (rows || `<div class="community-empty">${query ? "No exercises match that search." : "Nothing here yet. Try another body part or search."}</div>`) + createRow;
+}
+
+function openExercisePicker() {
+  document.getElementById("exercise-picker-search").value = "";
+  exercisePickerGroup = suggestedPickerExercises().length ? "suggested" : "all";
+  renderExercisePicker();
+  document.getElementById("exercise-picker-dialog").showModal();
+}
+
+function pickExercise(name) {
+  if (!addExercise(name)) return;
+  document.getElementById("exercise-picker-dialog").close();
+  openExerciseDetail(draftExercises[draftExercises.length - 1].id);
 }
 
 function exerciseType(exerciseName) {
@@ -1129,8 +1222,14 @@ function renderDraftExercises() {
   document.getElementById("day-summary-title").textContent = phase.title;
   document.getElementById("exercise-detail-back-label").textContent = phase.title;
   document.getElementById("day-exercise-count").textContent = `${draftExercises.length} ${draftExercises.length === 1 ? "EXERCISE" : "EXERCISES"}`;
+  document.getElementById("workout-view").classList.toggle("has-draft", draftExercises.length > 0);
+  persistDraft();
   if (!draftExercises.length) {
-    container.innerHTML = '<div class="empty-workout"><strong>No exercises yet.</strong>Add an exercise above to start recording your sets.</div>';
+    const lastWorkout = getLastMatchingWorkout(phase);
+    const repeatButton = lastWorkout
+      ? `<button class="outline-button" data-empty-action="repeat" type="button">↻ Repeat last ${escapeHtml(phase.title)} · ${escapeHtml(formatDate(new Date(`${lastWorkout.date}T12:00:00`)))}</button>`
+      : "";
+    container.innerHTML = `<div class="empty-workout workout-empty-start"><strong>Workout log empty</strong><span>Add exercises one at a time, or start from a previous session.</span><div class="empty-workout-actions"><button class="primary-button" data-empty-action="add" type="button"><span>＋</span> Add exercise</button>${repeatButton}<button class="outline-button" data-empty-action="calendar" type="button">▦ Copy from a past workout</button></div></div>`;
     return;
   }
   const supersetIds = [...new Set(draftExercises.map((exercise) => exercise.supersetId).filter(Boolean))];
@@ -1138,9 +1237,198 @@ function renderDraftExercises() {
   container.innerHTML = draftExercises.map((exercise, index) => {
     const color = exercise.supersetId ? supersetColors.get(exercise.supersetId) : "";
     const doneCount = exercise.sets.filter((set) => set.done).length;
-    const summary = exercise.sets.length ? `${doneCount}/${exercise.sets.length} SETS COMPLETE` : "NO SETS LOGGED";
-    return `<article class="exercise-summary-row${color ? " is-superset" : ""}" data-exercise-id="${escapeHtml(exercise.id)}" ${color ? `style="--superset-color:${color}"` : ""} draggable="true"><button class="drag-handle" data-drag-handle="true" type="button" draggable="true" aria-label="Drag to reorder ${escapeHtml(exercise.name)}" title="Drag to reorder">⠿</button><span class="workout-exercise-index">${String(index + 1).padStart(2, "0")}</span><button class="exercise-summary-open" data-open-exercise="${escapeHtml(exercise.id)}" type="button"><strong>${escapeHtml(exercise.name)}</strong><span>${escapeHtml(muscleGroupFor(exercise.name).toUpperCase())}${color ? " · SUPERSET" : ""} · ${summary}</span></button><button class="superset-button${color ? " active" : ""}" data-superset-toggle="${escapeHtml(exercise.id)}" type="button" aria-pressed="${Boolean(color)}">${color ? "A" : "+ Superset"}</button><button class="remove-exercise" data-remove-exercise="${escapeHtml(exercise.id)}" type="button" aria-label="Remove ${escapeHtml(exercise.name)}">×</button></article>`;
+    const setChips = exercise.sets.length
+      ? exercise.sets.map((set) => `<span class="set-chip${set.done ? " is-done" : ""}">${escapeHtml(set.weight)}<small>lb</small> × ${escapeHtml(set.reps)}</span>`).join("")
+      : '<span class="set-chip-empty">No sets yet · tap to log</span>';
+    const progress = exercise.sets.length ? `${doneCount}/${exercise.sets.length} DONE` : "";
+    return `<article class="exercise-summary-row${color ? " is-superset" : ""}${exercise.sets.length && doneCount === exercise.sets.length ? " is-finished" : ""}" data-exercise-id="${escapeHtml(exercise.id)}" ${color ? `style="--superset-color:${color}"` : ""} draggable="true"><button class="drag-handle" data-drag-handle="true" type="button" draggable="true" aria-label="Drag to reorder ${escapeHtml(exercise.name)}" title="Drag to reorder">⠿</button><button class="exercise-summary-open" data-open-exercise="${escapeHtml(exercise.id)}" type="button"><span class="exercise-summary-title"><strong>${escapeHtml(exercise.name)}</strong><small>${escapeHtml(muscleGroupFor(exercise.name).toUpperCase())}${color ? " · SUPERSET" : ""}${progress ? ` · ${progress}` : ""}</small></span><span class="exercise-summary-sets">${setChips}</span></button><div class="exercise-summary-tools"><button class="superset-button${color ? " active" : ""}" data-superset-toggle="${escapeHtml(exercise.id)}" type="button" aria-pressed="${Boolean(color)}" aria-label="${color ? "Edit superset" : "Link as superset"}" title="${color ? "Edit superset" : "Link as superset"}">${color ? "Linked" : "Link"}</button><button class="remove-exercise" data-remove-exercise="${escapeHtml(exercise.id)}" type="button" aria-label="Remove ${escapeHtml(exercise.name)}">×</button></div></article>`;
   }).join("");
+}
+
+function draftStorageKey(user = currentUser) {
+  return user ? `liftwk-draft-${user.id}` : null;
+}
+
+function persistDraft() {
+  const key = draftStorageKey();
+  if (!key) return;
+  try {
+    if (!draftExercises.length) localStorage.removeItem(key);
+    else localStorage.setItem(key, JSON.stringify({ exercises: draftExercises, name: document.getElementById("workout-name").value, splitId: selectedSplitId, phaseId: selectedWorkoutPhaseId, startedAt: workoutStartedAt, savedAt: Date.now() }));
+  } catch { /* The workout still works for this visit without storage. */ }
+}
+
+function readStoredDraft(user) {
+  try {
+    const draft = JSON.parse(localStorage.getItem(draftStorageKey(user)));
+    if (!draft || !Array.isArray(draft.exercises) || !draft.exercises.length) return null;
+    if (Date.now() - Number(draft.savedAt) > 24 * 60 * 60 * 1000) return null;
+    return draft;
+  } catch { return null; }
+}
+
+function restoreDraft(draft) {
+  if (!draft) return;
+  if (draft.splitId === selectedSplitId && TRAINING_SPLITS[selectedSplitId].phases.some((phase) => phase.id === draft.phaseId)) {
+    selectedWorkoutPhaseId = draft.phaseId;
+    renderSplitUI();
+  }
+  draftExercises = draft.exercises.filter((exercise) => exercise?.id && exercise.name && Array.isArray(exercise.sets));
+  if (draft.name) document.getElementById("workout-name").value = draft.name;
+  workoutStartedAt = Number(draft.startedAt) || Date.now();
+  renderDraftExercises();
+}
+
+function exerciseHistory(name) {
+  return [...sessions]
+    .sort((first, second) => second.date.localeCompare(first.date) || String(second.id).localeCompare(String(first.id)))
+    .map((session) => ({ session, exercise: session.setDetails?.find((item) => item.name === name) }))
+    .filter((entry) => entry.exercise?.sets?.length);
+}
+
+function defaultSetDraft(exercise) {
+  const lastSet = exercise.sets[exercise.sets.length - 1] || exerciseHistory(exercise.name)[0]?.exercise.sets[0];
+  return lastSet ? { weight: Number(lastSet.weight) || 0, reps: Number(lastSet.reps) || 0 } : { weight: 0, reps: 0 };
+}
+
+const estimatedOneRepMax = (set) => {
+  const weight = Number(set.weight) || 0;
+  const reps = Number(set.reps) || 0;
+  return reps <= 1 ? weight : weight * (1 + reps / 30);
+};
+
+let activeExerciseTab = "track";
+let graphMetric = "e1rm";
+
+function renderExerciseHistory(exercise) {
+  const entries = exerciseHistory(exercise.name);
+  const bestWeight = Number(personalRecords[exercise.name]) || 0;
+  document.getElementById("exercise-history-list").innerHTML = entries.length ? entries.map(({ session, exercise: logged }) => {
+    const date = formatDate(new Date(`${session.date}T12:00:00`), { weekday: "short", month: "short", day: "numeric", year: "numeric" });
+    const sets = logged.sets.map((set) => {
+      const isBest = bestWeight && Number(set.weight) === bestWeight;
+      return `<li${isBest ? ' class="is-best"' : ""}><span class="history-set-weight">${escapeHtml(set.weight)} <small>lb</small></span><span class="history-set-reps">${escapeHtml(set.reps)} <small>reps</small></span>${isBest ? '<span class="history-set-best" title="Heaviest weight">PR</span>' : ""}${set.notes ? `<span class="history-set-note">${escapeHtml(set.notes)}</span>` : ""}</li>`;
+    }).join("");
+    return `<article class="exercise-history-entry"><header><strong>${escapeHtml(date)}</strong><span>${escapeHtml(session.name)}</span></header><ol>${sets}</ol>${logged.notes ? `<p>${escapeHtml(logged.notes)}</p>` : ""}</article>`;
+  }).join("") : '<div class="empty-workout"><strong>No history yet.</strong>Finish a workout with this exercise to see it here.</div>';
+}
+
+function renderExerciseGraph(exercise) {
+  document.querySelectorAll("[data-graph-metric]").forEach((button) => button.setAttribute("aria-checked", String(button.dataset.graphMetric === graphMetric)));
+  const container = document.getElementById("exercise-graph");
+  const metricValue = {
+    e1rm: (sets) => Math.max(...sets.map(estimatedOneRepMax)),
+    weight: (sets) => Math.max(...sets.map((set) => Number(set.weight) || 0)),
+    volume: (sets) => sets.reduce((sum, set) => sum + (Number(set.weight) || 0) * (Number(set.reps) || 0), 0),
+  }[graphMetric];
+  const metricLabel = { e1rm: "Estimated 1RM", weight: "Max weight", volume: "Volume" }[graphMetric];
+  const points = exerciseHistory(exercise.name).reverse().map(({ session, exercise: logged }) => ({ date: session.date, value: Math.round(metricValue(logged.sets)) }));
+  if (points.length < 2) {
+    container.innerHTML = '<div class="empty-workout"><strong>Not enough data yet.</strong>Log this exercise in at least two workouts to see a trend.</div>';
+    return;
+  }
+  const width = Math.max(280, container.clientWidth || 600);
+  const height = 220;
+  const pad = { top: 16, right: 14, bottom: 26, left: 44 };
+  const values = points.map((point) => point.value);
+  let low = Math.min(...values);
+  let high = Math.max(...values);
+  const span = Math.max(1, high - low);
+  low = Math.max(0, low - span * 0.12);
+  high += span * 0.12;
+  const times = points.map((point) => new Date(`${point.date}T12:00:00`).getTime());
+  const firstTime = times[0];
+  const timeSpan = Math.max(1, times[times.length - 1] - firstTime);
+  const x = (index) => pad.left + ((times[index] - firstTime) / timeSpan) * (width - pad.left - pad.right);
+  const y = (value) => pad.top + (1 - (value - low) / (high - low)) * (height - pad.top - pad.bottom);
+  const ticks = Array.from({ length: 4 }, (_, index) => low + ((high - low) * index) / 3);
+  const path = points.map((point, index) => `${index ? "L" : "M"}${x(index).toFixed(1)} ${y(point.value).toFixed(1)}`).join(" ");
+  const best = Math.max(...values);
+  const latest = values[values.length - 1];
+  const shortDate = (value) => formatDate(new Date(`${value}T12:00:00`), { month: "short", day: "numeric", year: "numeric" });
+  const minGap = Math.min(...points.slice(1).map((_, index) => x(index + 1) - x(index)));
+  container.innerHTML = `<div class="graph-summary"><div><span class="eyebrow">LATEST</span><strong>${latest.toLocaleString("en-US")} <small>lb</small></strong></div><div><span class="eyebrow">BEST</span><strong>${best.toLocaleString("en-US")} <small>lb</small></strong></div><div><span class="eyebrow">WORKOUTS</span><strong>${points.length}</strong></div></div>
+    <div class="graph-frame"><svg class="exercise-graph-svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" role="img" aria-label="${escapeHtml(metricLabel)} for ${escapeHtml(exercise.name)}, ${points.length} workouts, best ${best} pounds, latest ${latest} pounds">
+      ${ticks.map((tick) => `<line class="graph-grid" x1="${pad.left}" x2="${width - pad.right}" y1="${y(tick).toFixed(1)}" y2="${y(tick).toFixed(1)}"/><text class="graph-axis-label" x="${pad.left - 8}" y="${(y(tick) + 4).toFixed(1)}" text-anchor="end">${Math.round(tick).toLocaleString("en-US")}</text>`).join("")}
+      <text class="graph-axis-label" x="${pad.left}" y="${height - 6}" text-anchor="start">${escapeHtml(shortDate(points[0].date))}</text>
+      <text class="graph-axis-label" x="${width - pad.right}" y="${height - 6}" text-anchor="end">${escapeHtml(shortDate(points[points.length - 1].date))}</text>
+      <path class="graph-line" d="${path}"/>
+      ${minGap < 9 ? "" : points.map((point, index) => `<circle class="graph-point" cx="${x(index).toFixed(1)}" cy="${y(point.value).toFixed(1)}" r="3"/>`).join("")}
+      <line class="graph-crosshair" x1="0" x2="0" y1="${pad.top}" y2="${height - pad.bottom}" visibility="hidden"/>
+      <circle class="graph-focus" r="5.5" visibility="hidden"/>
+      <rect class="graph-hit" x="${pad.left}" y="0" width="${width - pad.left - pad.right}" height="${height}"/>
+    </svg><div class="graph-tooltip" hidden></div></div>`;
+  const svg = container.querySelector("svg");
+  const tooltip = container.querySelector(".graph-tooltip");
+  const crosshair = svg.querySelector(".graph-crosshair");
+  const focus = svg.querySelector(".graph-focus");
+  const showPoint = (event) => {
+    const bounds = svg.getBoundingClientRect();
+    const pointerX = ((event.clientX - bounds.left) / bounds.width) * width;
+    let nearest = 0;
+    points.forEach((_, index) => { if (Math.abs(x(index) - pointerX) < Math.abs(x(nearest) - pointerX)) nearest = index; });
+    const pointX = x(nearest);
+    const pointY = y(points[nearest].value);
+    crosshair.setAttribute("x1", pointX); crosshair.setAttribute("x2", pointX); crosshair.setAttribute("visibility", "visible");
+    focus.setAttribute("cx", pointX); focus.setAttribute("cy", pointY); focus.setAttribute("visibility", "visible");
+    tooltip.hidden = false;
+    tooltip.innerHTML = `<strong>${points[nearest].value.toLocaleString("en-US")} lb</strong><span>${escapeHtml(formatDate(new Date(`${points[nearest].date}T12:00:00`), { month: "short", day: "numeric", year: "numeric" }))}</span>`;
+    const left = (pointX / width) * bounds.width;
+    tooltip.style.left = `${Math.min(Math.max(left, 60), bounds.width - 60)}px`;
+    tooltip.style.top = `${Math.max(0, (pointY / height) * bounds.height - 52)}px`;
+  };
+  const hidePoint = () => { tooltip.hidden = true; crosshair.setAttribute("visibility", "hidden"); focus.setAttribute("visibility", "hidden"); };
+  svg.addEventListener("pointermove", showPoint);
+  svg.addEventListener("pointerdown", showPoint);
+  svg.addEventListener("pointerleave", hidePoint);
+}
+
+function setExerciseTab(tab) {
+  activeExerciseTab = tab;
+  renderExerciseDetail();
+}
+
+const REST_STORAGE_KEY = "liftwk-rest-seconds";
+let restTimerEndsAt = 0;
+let restTimerInterval = null;
+
+function restDuration() {
+  try { return Math.min(600, Math.max(15, Number(localStorage.getItem(REST_STORAGE_KEY)) || 90)); }
+  catch { return 90; }
+}
+
+function startRestTimer() {
+  restTimerEndsAt = Date.now() + restDuration() * 1000;
+  window.clearInterval(restTimerInterval);
+  restTimerInterval = window.setInterval(renderRestTimer, 250);
+  renderRestTimer();
+}
+
+function stopRestTimer() {
+  restTimerEndsAt = 0;
+  window.clearInterval(restTimerInterval);
+  restTimerInterval = null;
+  renderRestTimer();
+}
+
+function adjustRestTimer(seconds) {
+  try { localStorage.setItem(REST_STORAGE_KEY, String(Math.min(600, Math.max(15, restDuration() + seconds)))); } catch { /* Only this timer changes. */ }
+  restTimerEndsAt += seconds * 1000;
+  renderRestTimer();
+}
+
+function renderRestTimer() {
+  const timer = document.getElementById("rest-timer");
+  if (!restTimerEndsAt) { timer.hidden = true; return; }
+  const remaining = Math.ceil((restTimerEndsAt - Date.now()) / 1000);
+  if (remaining <= 0) {
+    stopRestTimer();
+    navigator.vibrate?.([200, 100, 200]);
+    showToast("Rest's up. Time for your next set.");
+    return;
+  }
+  timer.hidden = false;
+  document.getElementById("rest-timer-value").textContent = `${Math.floor(remaining / 60)}:${String(remaining % 60).padStart(2, "0")}`;
 }
 
 function renderExerciseDetail() {
@@ -1183,18 +1471,30 @@ function renderExerciseDetail() {
   container.innerHTML = exercise.sets.length ? exercise.sets.map((set, index) => {
     const isPersonalBest = index === newWeightRecordIndex || index === newRepRecordIndex;
     const trophy = isPersonalBest ? '<svg class="personal-best-trophy" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 3h10v3h4v3c0 3.1-2.1 5.7-5 6.5-.7 1.1-1.8 1.9-3 2.3V21h5v2H6v-2h5v-3.2c-1.2-.4-2.3-1.2-3-2.3C5.1 14.7 3 12.1 3 9V6h4V3Zm-2 5v1c0 1.8 1 3.4 2.5 4.2A9 9 0 0 1 7 9V8H5Zm14 0h-2v1c0 1.5-.2 2.9-.5 4.2A4.8 4.8 0 0 0 19 9V8Z"/></svg>' : "";
-    return `<div class="detail-set-row${set.done ? " is-complete" : ""}${editingSetIndex === index ? " is-selected" : ""}"><button class="set-note-button${set.notes ? " has-note" : ""}" data-set-note="${index}" type="button" aria-label="${set.notes ? "Edit" : "Add"} note for set ${index + 1}" title="${set.notes ? "Edit set note" : "Add set note"}">▤</button><span class="detail-set-index">${index + 1}</span><span class="personal-best-marker">${trophy}</span><button class="detail-set-edit" data-edit-set="${index}" type="button" aria-label="Tap to edit set ${index + 1}"><span class="detail-set-values"><span class="detail-set-weight-group"><strong class="detail-set-weight">${escapeHtml(set.weight)}</strong><small class="detail-set-unit">lbs</small></span><span class="detail-set-reps"><strong>${escapeHtml(set.reps)}</strong><small>reps</small></span></span></button></div>`;
-  }).join("") : '<div class="empty-workout detail-empty"><strong>No sets yet.</strong>Enter weight and reps above, then save your first set.</div>';
+    return `<div class="detail-set-row${set.done ? " is-complete" : " is-planned"}${editingSetIndex === index ? " is-selected" : ""}"><button class="set-note-button${set.notes ? " has-note" : ""}" data-set-note="${index}" type="button" aria-label="${set.notes ? "Edit" : "Add"} note for set ${index + 1}" title="${set.notes ? "Edit set note" : "Add set note"}">▤</button><span class="detail-set-index">${index + 1}</span><span class="personal-best-marker">${trophy}</span><button class="detail-set-edit" data-edit-set="${index}" type="button" aria-label="Tap to edit set ${index + 1}"><span class="detail-set-values"><span class="detail-set-weight-group"><strong class="detail-set-weight">${escapeHtml(set.weight)}</strong><small class="detail-set-unit">lbs</small></span><span class="detail-set-reps"><strong>${escapeHtml(set.reps)}</strong><small>reps</small></span></span></button><button class="set-done-toggle" data-toggle-set-done="${index}" type="button" aria-pressed="${Boolean(set.done)}" aria-label="${set.done ? "Mark set " + (index + 1) + " not done" : "Mark set " + (index + 1) + " done"}">✓</button></div>`;
+  }).join("") : '<div class="empty-workout detail-empty"><strong>No sets yet.</strong>Adjust weight and reps above, then save your first set.</div>';
+  const lastEntry = exerciseHistory(exercise.name)[0];
+  document.getElementById("exercise-last-time").textContent = lastEntry
+    ? `Last time · ${formatDate(new Date(`${lastEntry.session.date}T12:00:00`))}: ${lastEntry.exercise.sets.map((set) => `${set.weight}×${set.reps}`).join(", ")}`
+    : "First time logging this exercise.";
+  document.querySelectorAll("[data-exercise-tab]").forEach((button) => button.setAttribute("aria-selected", String(button.dataset.exerciseTab === activeExerciseTab)));
+  document.querySelectorAll("[data-exercise-pane]").forEach((pane) => { pane.hidden = pane.dataset.exercisePane !== activeExerciseTab; });
+  if (activeExerciseTab === "history") renderExerciseHistory(exercise);
+  persistDraft();
   document.getElementById("workout-view").classList.add("detail-open");
   document.body.classList.add("exercise-focus");
   document.getElementById("workout-summary-panel").hidden = true;
   document.getElementById("exercise-detail-panel").hidden = false;
+  if (activeExerciseTab === "graph") renderExerciseGraph(exercise);
+  renderRestTimer();
 }
 
 function openExerciseDetail(exerciseId) {
   activeExerciseId = exerciseId;
   editingSetIndex = null;
-  detailSetDraft = { weight: 0, reps: 0 };
+  activeExerciseTab = "track";
+  const exercise = draftExercises.find((item) => item.id === exerciseId);
+  detailSetDraft = exercise ? defaultSetDraft(exercise) : { weight: 0, reps: 0 };
   renderExerciseDetail();
   window.scrollTo({ top: 0, behavior: "smooth" });
 }
@@ -1228,6 +1528,7 @@ function saveExerciseSet() {
     return;
   }
   const set = { weight, reps, done: true };
+  const completesASet = editingSetIndex === null || !exercise.sets[editingSetIndex].done;
   if (editingSetIndex === null) {
     exercise.sets.push(set);
   } else {
@@ -1235,6 +1536,24 @@ function saveExerciseSet() {
   }
   exercise.completed = exercise.sets.length > 0 && exercise.sets.every((item) => item.done);
   editingSetIndex = null;
+  if (completesASet) startRestTimer();
+  renderExerciseDetail();
+}
+
+function toggleSetDone(setIndex) {
+  const exercise = draftExercises.find((item) => item.id === activeExerciseId);
+  const set = exercise?.sets[setIndex];
+  if (!set) return;
+  if (!set.done && !(Number(set.weight) > 0 && Number(set.reps) > 0)) {
+    showToast("Give this set a weight and reps first.");
+    return;
+  }
+  set.done = !set.done;
+  exercise.completed = exercise.sets.every((item) => item.done);
+  if (set.done) {
+    detailSetDraft = { weight: Number(set.weight) || 0, reps: Number(set.reps) || 0 };
+    startRestTimer();
+  }
   renderExerciseDetail();
 }
 
@@ -1248,7 +1567,7 @@ function clearOrDeleteExerciseSet() {
   if (!exercise) return;
   exercise.sets.splice(editingSetIndex, 1);
   editingSetIndex = null;
-  detailSetDraft = { weight: 0, reps: 0 };
+  detailSetDraft = defaultSetDraft(exercise);
   renderExerciseDetail();
 }
 
@@ -1361,15 +1680,16 @@ function moveExercise(draggedId, targetId) {
   renderDraftExercises();
 }
 
-function addExercise(name) {
-  if (!name) return;
+function addExercise(name, { quiet = false } = {}) {
+  if (!name) return false;
   if (draftExercises.some((exercise) => exercise.name === name)) {
-    showToast("That exercise is already in this workout.");
-    return;
+    if (!quiet) showToast("That exercise is already in this workout.");
+    return false;
   }
+  if (!draftExercises.length) workoutStartedAt = Date.now();
   draftExercises.push({ id: crypto.randomUUID ? crypto.randomUUID() : `exercise-${Date.now()}-${Math.random()}`, name, notes: "", sets: [] });
-  document.getElementById("exercise-select").value = "";
   renderDraftExercises();
+  return true;
 }
 
 function finishWorkout() {
@@ -1408,6 +1728,7 @@ function finishWorkout() {
   selectedWorkoutPhaseId = getNextSplitSession().phase.id;
   draftExercises = [];
   activeExerciseId = null;
+  stopRestTimer();
   workoutStartedAt = Date.now();
   document.getElementById("workout-name").value = suggestedWorkoutName;
   document.getElementById("exercise-detail-panel").hidden = true;
@@ -1472,7 +1793,7 @@ document.addEventListener("keydown", (event) => {
   }
 });
 document.querySelectorAll(".split-option").forEach((button) => button.addEventListener("click", () => selectTrainingSplit(button.dataset.split)));
-document.getElementById("start-suggested-session").addEventListener("click", loadSuggestedWorkout);
+document.getElementById("start-suggested-session").addEventListener("click", startNextWorkout);
 document.getElementById("load-split-suggestion").addEventListener("click", loadSuggestedWorkout);
 document.getElementById("load-last-split-workout").addEventListener("click", loadLastMatchingWorkout);
 document.getElementById("recent-workout-select").addEventListener("change", (event) => {
@@ -1494,6 +1815,7 @@ document.getElementById("delete-selected-exercises").addEventListener("click", d
 document.getElementById("detail-exercise-notes").addEventListener("input", (event) => {
   const exercise = draftExercises.find((item) => item.id === activeExerciseId);
   if (exercise) exercise.notes = event.target.value;
+  persistDraft();
 });
 document.getElementById("number-pad-close").addEventListener("click", () => document.getElementById("number-pad-dialog").close());
 document.getElementById("exercise-detail-panel").addEventListener("input", (event) => {
@@ -1551,6 +1873,11 @@ document.getElementById("exercise-detail-panel").addEventListener("click", (even
     openSetNote(Number(noteButton.dataset.setNote));
     return;
   }
+  const doneButton = event.target.closest("[data-toggle-set-done]");
+  if (doneButton) {
+    toggleSetDone(Number(doneButton.dataset.toggleSetDone));
+    return;
+  }
   const editButton = event.target.closest("[data-edit-set]");
   if (editButton) {
     editExerciseSet(Number(editButton.dataset.editSet));
@@ -1572,8 +1899,42 @@ document.getElementById("theme-toggle").addEventListener("click", () => {
   document.body.classList.toggle("light");
   try { localStorage.setItem("repwise-light", String(document.body.classList.contains("light"))); } catch { /* Theme still works for this visit. */ }
 });
-document.getElementById("add-exercise").addEventListener("click", () => addExercise(document.getElementById("exercise-select").value));
-document.getElementById("exercise-select").addEventListener("change", (event) => { if (event.target.value) addExercise(event.target.value); });
+document.getElementById("open-exercise-picker").addEventListener("click", openExercisePicker);
+document.getElementById("discard-workout").addEventListener("click", discardWorkout);
+document.getElementById("exercise-picker-close").addEventListener("click", () => document.getElementById("exercise-picker-dialog").close());
+document.getElementById("exercise-picker-search").addEventListener("input", renderExercisePicker);
+document.getElementById("exercise-picker-search").addEventListener("keydown", (event) => {
+  if (event.key !== "Enter") return;
+  event.preventDefault();
+  const first = document.querySelector("#exercise-picker-list [data-pick-exercise]:not([disabled])");
+  if (first) pickExercise(first.dataset.pickExercise);
+});
+document.getElementById("exercise-picker-dialog").addEventListener("click", (event) => {
+  const groupButton = event.target.closest("[data-picker-group]");
+  if (groupButton) {
+    exercisePickerGroup = groupButton.dataset.pickerGroup;
+    document.getElementById("exercise-picker-search").value = "";
+    renderExercisePicker();
+    return;
+  }
+  if (event.target.closest("#exercise-picker-create")) {
+    const name = createCustomExercise(document.getElementById("exercise-picker-search").value, document.getElementById("exercise-picker-create-group").value);
+    if (name) pickExercise(name);
+    return;
+  }
+  const item = event.target.closest("[data-pick-exercise]");
+  if (item && !item.disabled) pickExercise(item.dataset.pickExercise);
+});
+document.querySelectorAll("[data-exercise-tab]").forEach((button) => button.addEventListener("click", () => setExerciseTab(button.dataset.exerciseTab)));
+document.querySelectorAll("[data-graph-metric]").forEach((button) => button.addEventListener("click", () => {
+  graphMetric = button.dataset.graphMetric;
+  renderExerciseDetail();
+}));
+document.getElementById("rest-timer").addEventListener("click", (event) => {
+  const adjust = event.target.closest("[data-rest-adjust]");
+  if (adjust) adjustRestTimer(Number(adjust.dataset.restAdjust));
+  if (event.target.closest("#rest-timer-stop")) stopRestTimer();
+});
 document.getElementById("workout-day").addEventListener("change", (event) => {
   selectedWorkoutPhaseId = event.target.value;
   renderSplitUI();
@@ -1589,7 +1950,7 @@ document.getElementById("save-custom-exercise").addEventListener("click", saveCu
 document.getElementById("custom-exercise-name").addEventListener("keydown", (event) => {
   if (event.key === "Enter") { event.preventDefault(); saveCustomExercise(); }
 });
-document.getElementById("workout-name").addEventListener("input", () => { suggestedWorkoutName = ""; });
+document.getElementById("workout-name").addEventListener("input", () => { suggestedWorkoutName = ""; persistDraft(); });
 document.getElementById("save-workout").addEventListener("click", finishWorkout);
 document.getElementById("history-filter").addEventListener("change", renderHistory);
 document.getElementById("exercise-search").addEventListener("input", renderLibrary);
@@ -1628,6 +1989,14 @@ document.addEventListener("click", (event) => {
     const exercise = draftExercises.find((item) => item.id === addSetButton.dataset.addSet);
     if (exercise) exercise.sets.push({ weight: 0, reps: 0, done: false });
     renderDraftExercises();
+    return;
+  }
+  const emptyAction = event.target.closest("[data-empty-action]");
+  if (emptyAction) {
+    const action = emptyAction.dataset.emptyAction;
+    if (action === "add") openExercisePicker();
+    if (action === "repeat") loadLastMatchingWorkout();
+    if (action === "calendar") openWorkoutCalendar();
     return;
   }
   const supersetButton = event.target.closest("[data-superset-toggle]");
@@ -1790,6 +2159,7 @@ async function signOut(message = "") {
   feedbackAlertTimer = null;
   feedbackAlertCursor = 0;
   draftExercises = [];
+  stopRestTimer();
   document.getElementById("app-shell").hidden = true;
   document.querySelector(".mobile-nav").hidden = true;
   document.body.classList.remove("authenticated");
@@ -1830,13 +2200,14 @@ document.getElementById("admin-avatar-list").addEventListener("click", (event) =
   const accountButton = event.target.closest("[data-admin-account-action]");
   if (accountButton && !accountButton.disabled) toggleAdminMemberAccount(Number(accountButton.dataset.adminAccountId), accountButton.dataset.adminAccountAction);
 });
-document.getElementById("workout-calendar-open").addEventListener("click", () => {
+function openWorkoutCalendar() {
   document.getElementById("workout-calendar-search").value = "";
   document.getElementById("workout-calendar-month").value = isoDate(today).slice(0, 7);
   selectedCalendarDate = null;
   renderWorkoutCalendar();
   document.getElementById("workout-calendar-dialog").showModal();
-});
+}
+document.getElementById("workout-calendar-open").addEventListener("click", openWorkoutCalendar);
 document.getElementById("workout-calendar-close").addEventListener("click", () => document.getElementById("workout-calendar-dialog").close());
 document.getElementById("workout-calendar-dialog").addEventListener("close", () => setCalendarCopyMode(null));
 document.getElementById("calendar-copy-cancel").addEventListener("click", () => {
@@ -1891,6 +2262,7 @@ document.addEventListener("click", (event) => {
   const likeButton = event.target.closest("[data-like-event]");
   if (likeButton) toggleActivityLike(Number(likeButton.dataset.likeEvent));
 });
+document.body.dataset.view = "dashboard";
 populateExerciseOptions();
 refreshDateLabels();
 renderSplitUI();
